@@ -1,20 +1,21 @@
 
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#075e54">
-  <meta name="description" content="Contact support on WhatsApp.">
-  <title>Contact Us on WhatsApp</title>
+  <meta name="description" content="Contact your account manager on WhatsApp.">
+  <title>点击前往 WhatsApp</title>
 
   <style>
     :root {
       --green: #075e54;
-      --green2: #128c7e;
+      --green-bright: #25d366;
       --ink: #17211f;
       --muted: #66736f;
       --line: #dce7e4;
+      --surface: #f4f8f6;
       --error: #b42318;
     }
 
@@ -26,122 +27,168 @@
       min-height: 100dvh;
       display: grid;
       place-items: center;
-      padding: 22px;
-      background: #f2f7f5;
+      padding: max(18px, env(safe-area-inset-top)) 16px
+        max(18px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at top, rgba(37, 211, 102, .09), transparent 34%),
+        #f3f7f5;
       color: var(--ink);
-      font-family: -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
     main {
       width: min(100%, 440px);
       background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 28px 22px;
-      box-shadow: 0 10px 34px rgba(7,94,84,.08);
+      border: 1px solid rgba(7, 94, 84, .12);
+      border-radius: 24px;
+      padding: 30px 22px 24px;
+      box-shadow: 0 16px 44px rgba(18, 54, 45, .09);
       text-align: center;
     }
 
     .logo {
-      width: 62px;
-      height: 62px;
-      margin: 0 auto 16px;
-      border-radius: 20px;
-      background: var(--green);
-      color: #fff;
+      width: 68px;
+      height: 68px;
+      margin: 0 auto 18px;
+      border-radius: 22px;
+      background: var(--green-bright);
       display: grid;
       place-items: center;
-      font-size: 28px;
+      box-shadow: 0 8px 20px rgba(37, 211, 102, .22);
+    }
+
+    .logo svg {
+      display: block;
+      width: 43px;
+      height: 43px;
     }
 
     h1 {
-      font-size: 25px;
+      font-size: clamp(23px, 6vw, 27px);
       line-height: 1.3;
-      margin: 0 0 10px;
+      letter-spacing: -.45px;
+      margin: 0 0 13px;
       overflow-wrap: anywhere;
     }
 
     p {
       color: var(--muted);
-      line-height: 1.65;
-      margin: 0 0 16px;
+      font-size: 15px;
+      line-height: 1.7;
+      margin: 0 0 20px;
+      overflow-wrap: anywhere;
     }
 
     .message {
       text-align: left;
-      background: #f5f8f7;
+      background: var(--surface);
       border: 1px solid var(--line);
-      padding: 13px;
-      border-radius: 12px;
-      margin: 18px 0;
+      padding: 15px;
+      border-radius: 14px;
+      margin: 22px 0;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
+    }
+
+    .message-label {
+      display: block;
+      color: #354740;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.5;
+      margin-bottom: 9px;
+    }
+
+    #message-text {
+      display: block;
+      color: #17211f;
+      font-size: 15px;
+      line-height: 1.65;
     }
 
     .btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 52px;
-      padding: 14px 16px;
-      border-radius: 13px;
+      width: 100%;
+      min-height: 54px;
+      padding: 15px 18px;
+      border-radius: 14px;
+      font-size: 16px;
+      line-height: 1.35;
       font-weight: 750;
       text-decoration: none;
       overflow-wrap: anywhere;
+      transition: background-color .15s ease, transform .15s ease;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .primary {
       background: var(--green);
       color: #fff;
+      box-shadow: 0 7px 16px rgba(7, 94, 84, .18);
     }
 
-    .secondary {
-      margin-top: 10px;
-      background: #e8f5f1;
-      color: var(--green);
-      border: 1px solid #c8e4dc;
-    }
+    .primary:hover { background: #064e46; }
+    .primary:active { transform: translateY(1px); }
 
     .btn:focus-visible {
       outline: 3px solid #69b7a9;
       outline-offset: 3px;
     }
 
-    .small {
-      font-size: 12px;
-      margin-top: 18px;
-    }
-
     .status {
       font-size: 13px;
+      line-height: 1.5;
       color: var(--muted);
-      margin-top: 14px;
+      margin: 14px 0 0;
     }
 
-    .status.error {
-      color: var(--error);
+    .status.error { color: var(--error); }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 360px) {
+      main {
+        padding: 25px 17px 20px;
+        border-radius: 20px;
+      }
+
+      .logo {
+        width: 62px;
+        height: 62px;
+        border-radius: 19px;
+      }
+
+      h1 { font-size: 23px; }
+      p { font-size: 14px; }
+      .btn { font-size: 15px; }
     }
 
-    [hidden] {
-      display: none !important;
+    @media (prefers-reduced-motion: reduce) {
+      .btn { transition: none; }
     }
   </style>
 </head>
 
 <body>
   <main>
-    <div class="logo" aria-hidden="true">↗</div>
+    <div class="logo" aria-label="WhatsApp" role="img">
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <path fill="#fff" d="M24 5.2A18.2 18.2 0 0 0 8.4 32.8L6 42l9.4-2.4A18.2 18.2 0 1 0 24 5.2Zm0 32.8c-2.8 0-5.5-.8-7.8-2.3l-.6-.4-5.6 1.5 1.5-5.5-.4-.6A14.2 14.2 0 1 1 24 38Z"/>
+        <path fill="#fff" d="M31.8 27.1c-.4-.2-2.5-1.2-2.9-1.3-.4-.1-.7-.2-1 .2-.3.4-1.1 1.3-1.3 1.6-.2.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.1-1.3-1.1-2.1-2.5-2.4-2.9-.2-.4 0-.6.2-.8l.7-.8c.2-.3.3-.4.4-.7.1-.3 0-.5 0-.7-.1-.2-.9-2.2-1.2-3-.3-.8-.7-.7-.9-.7h-.8c-.3 0-.7.1-1.1.5-.4.4-1.4 1.4-1.4 3.4s1.4 3.9 1.6 4.2c.2.3 2.8 4.3 6.8 6 .9.4 1.6.6 2.1.7.9.3 1.8.2 2.4.1.7-.1 2.5-1 2.8-2 .3-1 .3-1.8.2-2-.1-.2-.4-.3-.8-.5Z"/>
+      </svg>
+    </div>
 
-    <h1 id="page-title">Contact Us on WhatsApp</h1>
+    <h1 id="page-title">点击前往 WhatsApp</h1>
 
     <p id="page-description">
-      Tap the button below to contact our support team.
+      Please contact your assigned account manager via WhatsApp. Kindly send your position code to our customer service manager.
     </p>
 
     <div class="message" id="message-box">
-      <strong>Pre-filled message:</strong>
-      <br>
+      <span class="message-label">Here is your position code. Please send it to us.</span>
       <span id="message-text">Loading...</span>
     </div>
 
@@ -155,21 +202,6 @@
       Continue to WhatsApp ↗
     </a>
 
-    <a
-      class="btn secondary"
-      id="secondary-button"
-      href="#"
-      rel="noopener noreferrer"
-      hidden
-    >
-      Open WhatsApp without a message
-    </a>
-
-    <p class="small" id="help-text">
-      WhatsApp will not send your message automatically.
-      Review the message and press Send yourself.
-    </p>
-
     <p class="status" id="status" role="status" aria-live="polite">
       Loading page configuration...
     </p>
@@ -180,11 +212,8 @@
       "use strict";
 
       const $ = (id) => document.getElementById(id);
-
       const params = new URLSearchParams(location.search);
       const slug = (params.get("slug") || "").trim();
-
-      let config = null;
 
       function cleanText(value, max = 500) {
         return String(value ?? "")
@@ -201,9 +230,7 @@
       function whatsappUrl(phone, message = "") {
         const digits = String(phone || "").replace(/\D/g, "");
 
-        if (digits.length < 8 || digits.length > 15) {
-          return "";
-        }
+        if (digits.length < 8 || digits.length > 15) return "";
 
         const url = new URL("https://wa.me/" + digits);
 
@@ -212,6 +239,16 @@
         }
 
         return url.toString();
+      }
+
+      function getReferrerHost() {
+        try {
+          return document.referrer
+            ? new URL(document.referrer).hostname.slice(0, 120)
+            : "";
+        } catch {
+          return "";
+        }
       }
 
       function track(eventType, buttonType = null) {
@@ -228,45 +265,25 @@
         try {
           fetch("/api/track", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
             keepalive: true,
             credentials: "same-origin"
           }).catch(() => {
-            // 统计失败不应影响用户打开 WhatsApp。
+            // Tracking failure must not prevent WhatsApp from opening.
           });
         } catch {
-          // 统计失败不应影响页面使用。
+          // Tracking failure must not prevent page use.
         }
-      }
-
-      function getReferrerHost() {
-        try {
-          return document.referrer
-            ? new URL(document.referrer).hostname.slice(0, 120)
-            : "";
-        } catch {
-          return "";
-        }
-      }
-
-      function bindButton(button, buttonType) {
-        button.addEventListener("click", () => {
-          track("whatsapp_click", buttonType);
-          // 不拦截点击；浏览器按链接正常打开 WhatsApp。
-        });
       }
 
       async function init() {
         if (!slug || !/^[a-zA-Z0-9_-]{1,80}$/.test(slug)) {
           setStatus(
-            "缺少有效的落地页链接标识。请使用带有 ?slug=链接ID 的地址。",
+            "Missing or invalid landing page link ID. Please use a URL containing ?slug=linkID.",
             true
           );
           $("message-box").hidden = true;
-          $("help-text").hidden = true;
           return;
         }
 
@@ -286,59 +303,56 @@
 
           if (!response.ok || !result.link) {
             throw new Error(
-              result.error || "无法读取落地页配置，请稍后再试。"
+              result.error || "Unable to load page configuration. Please try again later."
             );
           }
 
-          config = result.link;
-
-          const title = cleanText(config.title, 140)
-            || "Contact Us on WhatsApp";
+          const config = result.link;
 
           const description = cleanText(config.description, 500)
-            || "Please tap the button below to continue.";
+            || "Please contact your assigned account manager via WhatsApp. Kindly send your position code to our customer service manager.";
 
           const message = cleanText(config.message, 800);
+
           const buttonText = cleanText(config.button_text, 80)
-            || "Open WhatsApp";
+            || "Continue to WhatsApp";
 
           const primaryUrl = whatsappUrl(config.phone, message);
-          const secondaryUrl = whatsappUrl(config.phone);
 
-          if (!primaryUrl || !secondaryUrl) {
-            throw new Error("此落地页的 WhatsApp 国际号码无效。");
+          if (!primaryUrl) {
+            throw new Error(
+              "The WhatsApp international phone number for this page is invalid."
+            );
           }
 
-          $("page-title").textContent = title;
+          // The heading and message label are fixed as requested.
+          $("page-title").textContent = "点击前往 WhatsApp";
           $("page-description").textContent = description;
-          $("message-text").textContent = message || "No pre-filled message";
+          $("message-text").textContent =
+            message || "No position code has been configured.";
 
-          document.title = title;
-          document.documentElement.lang = "zh-CN";
+          document.title = "点击前往 WhatsApp";
+          document.documentElement.lang = "en";
 
           const primary = $("primary-button");
           primary.href = primaryUrl;
           primary.textContent = buttonText + " ↗";
           primary.hidden = false;
 
-          const secondary = $("secondary-button");
-          secondary.href = secondaryUrl;
-          secondary.hidden = false;
-
-          bindButton(primary, "primary");
-          bindButton(secondary, "secondary");
+          primary.addEventListener("click", () => {
+            track("whatsapp_click", "primary");
+          });
 
           setStatus("");
           $("status").hidden = true;
         } catch (error) {
           setStatus(
-            error.message || "加载失败，请稍后重试。",
+            error.message || "Loading failed. Please try again later.",
             true
           );
 
           $("message-box").hidden = true;
           $("primary-button").hidden = true;
-          $("secondary-button").hidden = true;
         }
       }
 
