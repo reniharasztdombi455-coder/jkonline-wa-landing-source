@@ -4,22 +4,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#075e54">
-  <meta name="description" content="Contact your account manager on WhatsApp.">
-  <title>点击前往 WhatsApp</title>
+  <meta name="theme-color" content="#202020">
+  <meta name="description" content="Connect with your dedicated account manager on WhatsApp.">
+  <title>Click to Open WhatsApp</title>
 
   <style>
     :root {
-      --green: #075e54;
-      --green-bright: #25d366;
-      --ink: #17211f;
-      --muted: #66736f;
-      --line: #dce7e4;
-      --surface: #f4f8f6;
-      --error: #b42318;
+      --ink: #111820;
+      --muted: #777c82;
+      --green: #25d366;
+      --line: rgba(255,255,255,.72);
     }
 
     * { box-sizing: border-box; }
+
+    html { min-height: 100%; }
 
     body {
       margin: 0;
@@ -27,184 +26,303 @@
       min-height: 100dvh;
       display: grid;
       place-items: center;
-      padding: max(18px, env(safe-area-inset-top)) 16px
-        max(18px, env(safe-area-inset-bottom));
-      background:
-        radial-gradient(circle at top, rgba(37, 211, 102, .09), transparent 34%),
-        #f3f7f5;
+      padding: 28px 18px;
       color: var(--ink);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
+      background-color: #bfc0c0;
+      background-image:
+        radial-gradient(ellipse at 78% 12%, rgba(255,255,255,.98) 0%, rgba(244,244,242,.88) 24%, transparent 48%),
+        radial-gradient(ellipse at 8% 8%, rgba(28,28,28,.98) 0%, rgba(74,74,73,.90) 28%, transparent 55%),
+        radial-gradient(ellipse at 92% 88%, rgba(74,74,73,.85) 0%, transparent 42%),
+        linear-gradient(148deg, #282928 0%, #747574 34%, #f5f5f3 49%, #d7d8d6 72%, #737472 100%);
+      background-attachment: fixed;
+      position: relative;
+      isolation: isolate;
+      overflow-x: hidden;
     }
 
-    main {
-      width: min(100%, 440px);
-      background: #fff;
-      border: 1px solid rgba(7, 94, 84, .12);
-      border-radius: 24px;
-      padding: 30px 22px 24px;
-      box-shadow: 0 16px 44px rgba(18, 54, 45, .09);
+    body::before {
+      content: "";
+      position: fixed;
+      z-index: -1;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(145deg, transparent 0 44%, rgba(255,255,255,.58) 44.2%, rgba(255,255,255,.08) 44.7%, transparent 45.3%),
+        linear-gradient(24deg, transparent 0 27%, rgba(20,20,20,.32) 27.1%, rgba(255,255,255,.36) 27.4%, transparent 28%),
+        radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(0,0,0,.09) 100%);
+    }
+
+    .card {
+      width: min(100%, 650px);
+      padding: 42px 42px 38px;
+      border: 1px solid rgba(255,255,255,.86);
+      border-radius: 30px;
+      background: rgba(255,255,255,.78);
+      box-shadow:
+        0 30px 90px rgba(0,0,0,.20),
+        0 3px 8px rgba(0,0,0,.04),
+        inset 0 1px 0 rgba(255,255,255,.95);
+      backdrop-filter: blur(26px);
+      -webkit-backdrop-filter: blur(26px);
       text-align: center;
     }
 
-    .logo {
-      width: 68px;
-      height: 68px;
-      margin: 0 auto 18px;
-      border-radius: 22px;
-      background: var(--green-bright);
+    .brand-icon {
+      width: 92px;
+      height: 92px;
       display: grid;
       place-items: center;
-      box-shadow: 0 8px 20px rgba(37, 211, 102, .22);
+      margin: 0 auto 27px;
+      border-radius: 27px;
+      background: var(--green);
+      box-shadow:
+        0 12px 30px rgba(37,211,102,.28),
+        inset 0 1px 0 rgba(255,255,255,.35);
     }
 
-    .logo svg {
+    .brand-icon svg {
       display: block;
-      width: 43px;
-      height: 43px;
+      width: 70px;
+      height: 70px;
     }
 
     h1 {
-      font-size: clamp(23px, 6vw, 27px);
+      margin: 0;
+      color: #111820;
+      font-size: clamp(29px, 5vw, 42px);
+      font-weight: 760;
       line-height: 1.3;
-      letter-spacing: -.45px;
-      margin: 0 0 13px;
+      letter-spacing: -1.15px;
       overflow-wrap: anywhere;
     }
 
-    p {
+    .subtitle {
+      margin: 14px 0 0;
       color: var(--muted);
-      font-size: 15px;
-      line-height: 1.7;
-      margin: 0 0 20px;
+      font-size: clamp(15px, 2.5vw, 20px);
+      line-height: 1.8;
+      letter-spacing: .1px;
       overflow-wrap: anywhere;
     }
 
-    .message {
-      text-align: left;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      padding: 15px;
-      border-radius: 14px;
-      margin: 22px 0;
+    .divider {
+      width: 76px;
+      height: 1px;
+      margin: 25px auto 28px;
+      background: linear-gradient(90deg, transparent, rgba(80,80,80,.30), transparent);
+    }
+
+    .code-panel {
+      padding: 24px 24px 23px;
+      border: 1px solid rgba(255,255,255,.80);
+      border-radius: 20px;
+      background: rgba(255,255,255,.39);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
+    }
+
+    .field-label {
+      display: block;
+      margin: 0 0 19px;
+      color: #171a1d;
+      font-size: clamp(14px, 2vw, 17px);
+      font-weight: 700;
+      line-height: 1.8;
+      letter-spacing: .05px;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    .code-box {
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 17px 19px;
+      border: 1px solid rgba(25,35,30,.10);
+      border-radius: 15px;
+      background: rgba(255,255,255,.72);
+      box-shadow:
+        0 2px 7px rgba(0,0,0,.025),
+        inset 0 1px 0 rgba(255,255,255,.85);
       overflow-wrap: anywhere;
       white-space: pre-wrap;
     }
 
-    .message-label {
-      display: block;
-      color: #354740;
-      font-size: 13px;
-      font-weight: 700;
-      line-height: 1.5;
-      margin-bottom: 9px;
-    }
-
     #message-text {
-      display: block;
-      color: #17211f;
-      font-size: 15px;
-      line-height: 1.65;
-    }
-
-    .btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      min-height: 54px;
-      padding: 15px 18px;
-      border-radius: 14px;
-      font-size: 16px;
-      line-height: 1.35;
-      font-weight: 750;
-      text-decoration: none;
+      color: #17191b;
+      font-size: clamp(15px, 2.2vw, 19px);
+      line-height: 1.8;
+      text-align: center;
       overflow-wrap: anywhere;
-      transition: background-color .15s ease, transform .15s ease;
-      -webkit-tap-highlight-color: transparent;
     }
 
     .primary {
-      background: var(--green);
+      width: 100%;
+      min-height: 72px;
+      margin-top: 23px;
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      border: 1px solid rgba(255,255,255,.17);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #292d2d 0%, #080a0a 100%);
       color: #fff;
-      box-shadow: 0 7px 16px rgba(7, 94, 84, .18);
+      text-decoration: none;
+      text-align: center;
+      font-size: clamp(16px, 2.3vw, 19px);
+      font-weight: 730;
+      line-height: 1.5;
+      letter-spacing: .1px;
+      box-shadow:
+        0 13px 25px rgba(0,0,0,.21),
+        0 0 28px rgba(37,211,102,.09),
+        inset 0 1px 0 rgba(255,255,255,.25);
+      transition: transform .18s ease, box-shadow .18s ease;
+      overflow-wrap: anywhere;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .primary:hover { background: #064e46; }
+    .primary:hover {
+      box-shadow:
+        0 16px 30px rgba(0,0,0,.25),
+        0 0 32px rgba(37,211,102,.15),
+        inset 0 1px 0 rgba(255,255,255,.25);
+    }
+
     .primary:active { transform: translateY(1px); }
 
-    .btn:focus-visible {
-      outline: 3px solid #69b7a9;
-      outline-offset: 3px;
+    .primary svg {
+      width: 30px;
+      height: 30px;
+      flex: 0 0 auto;
+    }
+
+    .primary:focus-visible {
+      outline: 3px solid rgba(37,211,102,.75);
+      outline-offset: 5px;
     }
 
     .status {
+      margin: 15px 0 0;
+      color: #a4261d;
       font-size: 13px;
-      line-height: 1.5;
-      color: var(--muted);
-      margin: 14px 0 0;
+      line-height: 1.6;
+      text-align: center;
     }
-
-    .status.error { color: var(--error); }
 
     [hidden] { display: none !important; }
 
-    @media (max-width: 360px) {
-      main {
-        padding: 25px 17px 20px;
-        border-radius: 20px;
+    @media (max-width: 520px) {
+      body { padding: 22px 14px; }
+
+      .card {
+        width: 100%;
+        padding: 30px 21px 24px;
+        border-radius: 24px;
       }
 
-      .logo {
-        width: 62px;
-        height: 62px;
-        border-radius: 19px;
+      .brand-icon {
+        width: 76px;
+        height: 76px;
+        margin-bottom: 23px;
+        border-radius: 23px;
       }
 
-      h1 { font-size: 23px; }
-      p { font-size: 14px; }
-      .btn { font-size: 15px; }
+      .brand-icon svg { width: 58px; height: 58px; }
+
+      h1 {
+        font-size: clamp(25px, 7vw, 33px);
+        letter-spacing: -.65px;
+      }
+
+      .subtitle {
+        margin-top: 12px;
+        font-size: 15px;
+      }
+
+      .divider { margin: 22px auto 23px; }
+
+      .code-panel {
+        padding: 19px 14px 15px;
+        border-radius: 17px;
+      }
+
+      .field-label {
+        margin-bottom: 15px;
+        font-size: 14px;
+        line-height: 1.8;
+      }
+
+      .code-box {
+        min-height: 70px;
+        padding: 14px 12px;
+      }
+
+      #message-text { font-size: 15px; }
+
+      .primary {
+        min-height: 61px;
+        margin-top: 18px;
+        padding: 15px 17px;
+        gap: 11px;
+        font-size: 16px;
+      }
+
+      .primary svg { width: 25px; height: 25px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .btn { transition: none; }
+      .primary { transition: none; }
     }
   </style>
 </head>
 
 <body>
-  <main>
-    <div class="logo" aria-label="WhatsApp" role="img">
-      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+  <main class="card">
+    <div class="brand-icon" role="img" aria-label="WhatsApp">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
         <path fill="#fff" d="M24 5.2A18.2 18.2 0 0 0 8.4 32.8L6 42l9.4-2.4A18.2 18.2 0 1 0 24 5.2Zm0 32.8c-2.8 0-5.5-.8-7.8-2.3l-.6-.4-5.6 1.5 1.5-5.5-.4-.6A14.2 14.2 0 1 1 24 38Z"/>
         <path fill="#fff" d="M31.8 27.1c-.4-.2-2.5-1.2-2.9-1.3-.4-.1-.7-.2-1 .2-.3.4-1.1 1.3-1.3 1.6-.2.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.1-1.3-1.1-2.1-2.5-2.4-2.9-.2-.4 0-.6.2-.8l.7-.8c.2-.3.3-.4.4-.7.1-.3 0-.5 0-.7-.1-.2-.9-2.2-1.2-3-.3-.8-.7-.7-.9-.7h-.8c-.3 0-.7.1-1.1.5-.4.4-1.4 1.4-1.4 3.4s1.4 3.9 1.6 4.2c.2.3 2.8 4.3 6.8 6 .9.4 1.6.6 2.1.7.9.3 1.8.2 2.4.1.7-.1 2.5-1 2.8-2 .3-1 .3-1.8.2-2-.1-.2-.4-.3-.8-.5Z"/>
       </svg>
     </div>
 
-    <h1 id="page-title">点击前往 WhatsApp</h1>
+    <h1 id="page-title">Click to Open WhatsApp</h1>
 
-    <p id="page-description">
-      Please contact your assigned account manager via WhatsApp. Kindly send your position code to our customer service manager.
+    <p class="subtitle" id="page-description">
+      You will be assigned a dedicated account manager.
     </p>
 
-    <div class="message" id="message-box">
-      <span class="message-label">Here is your position code. Please send it to us.</span>
-      <span id="message-text">Loading...</span>
-    </div>
+    <div class="divider" aria-hidden="true"></div>
+
+    <section class="code-panel">
+      <span class="field-label">
+        Here is your position code. Please send it to your account manager.
+      </span>
+
+      <div class="code-box" id="message-box">
+        <span id="message-text">Loading...</span>
+      </div>
+    </section>
 
     <a
-      class="btn primary"
+      class="primary"
       id="primary-button"
       href="#"
       rel="noopener noreferrer"
       hidden
     >
-      Continue to WhatsApp ↗
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#25d366" d="M24 5.2A18.2 18.2 0 0 0 8.4 32.8L6 42l9.4-2.4A18.2 18.2 0 1 0 24 5.2Zm0 32.8c-2.8 0-5.5-.8-7.8-2.3l-.6-.4-5.6 1.5 1.5-5.5-.4-.6A14.2 14.2 0 1 1 24 38Z"/>
+        <path fill="#fff" d="M31.8 27.1c-.4-.2-2.5-1.2-2.9-1.3-.4-.1-.7-.2-1 .2-.3.4-1.1 1.3-1.3 1.6-.2.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.1-1.3-1.1-2.1-2.5-2.4-2.9-.2-.4 0-.6.2-.8l.7-.8c.2-.3.3-.4.4-.7.1-.3 0-.5 0-.7-.1-.2-.9-2.2-1.2-3-.3-.8-.7-.7-.9-.7h-.8c-.3 0-.7.1-1.1.5-.4.4-1.4 1.4-1.4 3.4s1.4 3.9 1.6 4.2c.2.3 2.8 4.3 6.8 6 .9.4 1.6.6 2.1.7.9.3 1.8.2 2.4.1.7-.1 2.5-1 2.8-2 .3-1 .3-1.8.2-2-.1-.2-.4-.3-.8-.5Z"/>
+      </svg>
+      <span id="button-label">Click to Send</span>
     </a>
 
-    <p class="status" id="status" role="status" aria-live="polite">
-      Loading page configuration...
-    </p>
+    <p class="status" id="status" role="status" aria-live="polite" hidden></p>
   </main>
 
   <script>
@@ -225,6 +343,7 @@
       function setStatus(message, isError = false) {
         $("status").textContent = message;
         $("status").classList.toggle("error", isError);
+        $("status").hidden = !message;
       }
 
       function whatsappUrl(phone, message = "") {
@@ -269,20 +388,13 @@
             body: JSON.stringify(payload),
             keepalive: true,
             credentials: "same-origin"
-          }).catch(() => {
-            // Tracking failure must not prevent WhatsApp from opening.
-          });
-        } catch {
-          // Tracking failure must not prevent page use.
-        }
+          }).catch(() => {});
+        } catch {}
       }
 
       async function init() {
         if (!slug || !/^[a-zA-Z0-9_-]{1,80}$/.test(slug)) {
-          setStatus(
-            "Missing or invalid landing page link ID. Please use a URL containing ?slug=linkID.",
-            true
-          );
+          setStatus("Missing or invalid landing page link ID.", true);
           $("message-box").hidden = true;
           return;
         }
@@ -303,48 +415,37 @@
 
           if (!response.ok || !result.link) {
             throw new Error(
-              result.error || "Unable to load page configuration. Please try again later."
+              result.error || "Unable to load page configuration. Please try again."
             );
           }
 
           const config = result.link;
-
-          const description = cleanText(config.description, 500)
-            || "Please contact your assigned account manager via WhatsApp. Kindly send your position code to our customer service manager.";
-
           const message = cleanText(config.message, 800);
+          const target = whatsappUrl(config.phone, message);
 
-          const buttonText = cleanText(config.button_text, 80)
-            || "Continue to WhatsApp";
-
-          const primaryUrl = whatsappUrl(config.phone, message);
-
-          if (!primaryUrl) {
-            throw new Error(
-              "The WhatsApp international phone number for this page is invalid."
-            );
+          if (!target) {
+            throw new Error("The WhatsApp phone number configured for this page is invalid.");
           }
 
-          // The heading and message label are fixed as requested.
-          $("page-title").textContent = "点击前往 WhatsApp";
-          $("page-description").textContent = description;
+          // Fixed English copy; the position code remains dynamic in D1.
+          $("page-title").textContent = "Click to Open WhatsApp";
+          $("page-description").textContent =
+            "You will be assigned a dedicated account manager.";
           $("message-text").textContent =
             message || "No position code has been configured.";
 
-          document.title = "点击前往 WhatsApp";
+          document.title = "Click to Open WhatsApp";
           document.documentElement.lang = "en";
 
-          const primary = $("primary-button");
-          primary.href = primaryUrl;
-          primary.textContent = buttonText + " ↗";
-          primary.hidden = false;
+          $("primary-button").href = target;
+          $("button-label").textContent = "Click to Send";
+          $("primary-button").hidden = false;
 
-          primary.addEventListener("click", () => {
+          $("primary-button").addEventListener("click", () => {
             track("whatsapp_click", "primary");
           });
 
           setStatus("");
-          $("status").hidden = true;
         } catch (error) {
           setStatus(
             error.message || "Loading failed. Please try again later.",
