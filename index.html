@@ -13,12 +13,15 @@
       --ink: #111820;
       --muted: #777c82;
       --green: #25d366;
-      --line: rgba(255,255,255,.72);
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
-    html { min-height: 100%; }
+    html {
+      min-height: 100%;
+    }
 
     body {
       margin: 0;
@@ -126,12 +129,25 @@
       display: block;
       margin: 0 0 19px;
       color: #171a1d;
-      font-size: clamp(14px, 2vw, 17px);
-      font-weight: 700;
-      line-height: 1.8;
-      letter-spacing: .05px;
       text-align: center;
       overflow-wrap: anywhere;
+    }
+
+    .field-label strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: clamp(16px, 2.2vw, 18px);
+      font-weight: 750;
+      line-height: 1.6;
+      letter-spacing: .05px;
+    }
+
+    .field-label span {
+      display: block;
+      color: #777c82;
+      font-size: clamp(13px, 1.8vw, 15px);
+      font-weight: 400;
+      line-height: 1.8;
     }
 
     .code-box {
@@ -193,7 +209,9 @@
         inset 0 1px 0 rgba(255,255,255,.25);
     }
 
-    .primary:active { transform: translateY(1px); }
+    .primary:active {
+      transform: translateY(1px);
+    }
 
     .primary svg {
       width: 30px;
@@ -214,10 +232,14 @@
       text-align: center;
     }
 
-    [hidden] { display: none !important; }
+    [hidden] {
+      display: none !important;
+    }
 
     @media (max-width: 520px) {
-      body { padding: 22px 14px; }
+      body {
+        padding: 22px 14px;
+      }
 
       .card {
         width: 100%;
@@ -232,7 +254,10 @@
         border-radius: 23px;
       }
 
-      .brand-icon svg { width: 58px; height: 58px; }
+      .brand-icon svg {
+        width: 58px;
+        height: 58px;
+      }
 
       h1 {
         font-size: clamp(25px, 7vw, 33px);
@@ -244,7 +269,9 @@
         font-size: 15px;
       }
 
-      .divider { margin: 22px auto 23px; }
+      .divider {
+        margin: 22px auto 23px;
+      }
 
       .code-panel {
         padding: 19px 14px 15px;
@@ -253,8 +280,14 @@
 
       .field-label {
         margin-bottom: 15px;
-        font-size: 14px;
-        line-height: 1.8;
+      }
+
+      .field-label strong {
+        font-size: 16px;
+      }
+
+      .field-label span {
+        font-size: 13px;
       }
 
       .code-box {
@@ -262,7 +295,9 @@
         padding: 14px 12px;
       }
 
-      #message-text { font-size: 15px; }
+      #message-text {
+        font-size: 15px;
+      }
 
       .primary {
         min-height: 61px;
@@ -272,11 +307,16 @@
         font-size: 16px;
       }
 
-      .primary svg { width: 25px; height: 25px; }
+      .primary svg {
+        width: 25px;
+        height: 25px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .primary { transition: none; }
+      .primary {
+        transition: none;
+      }
     }
   </style>
 </head>
@@ -299,9 +339,10 @@
     <div class="divider" aria-hidden="true"></div>
 
     <section class="code-panel">
-      <span class="field-label">
-        Here is your position code. Please send it to your account manager.
-      </span>
+      <div class="field-label">
+        <strong>Your Position Code</strong>
+        <span>Please send this code to your account manager.</span>
+      </div>
 
       <div class="code-box" id="message-box">
         <span id="message-text">Loading...</span>
@@ -349,7 +390,9 @@
       function whatsappUrl(phone, message = "") {
         const digits = String(phone || "").replace(/\D/g, "");
 
-        if (digits.length < 8 || digits.length > 15) return "";
+        if (digits.length < 8 || digits.length > 15) {
+          return "";
+        }
 
         const url = new URL("https://wa.me/" + digits);
 
@@ -384,7 +427,9 @@
         try {
           fetch("/api/track", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json"
+            },
             body: JSON.stringify(payload),
             keepalive: true,
             credentials: "same-origin"
@@ -424,10 +469,11 @@
           const target = whatsappUrl(config.phone, message);
 
           if (!target) {
-            throw new Error("The WhatsApp phone number configured for this page is invalid.");
+            throw new Error(
+              "The WhatsApp phone number configured for this page is invalid."
+            );
           }
 
-          // Fixed English copy; the position code remains dynamic in D1.
           $("page-title").textContent = "Click to Open WhatsApp";
           $("page-description").textContent =
             "You will be assigned a dedicated account manager.";
