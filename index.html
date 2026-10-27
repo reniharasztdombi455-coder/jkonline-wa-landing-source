@@ -511,8 +511,16 @@
           $("primary-button").href = target;
           $("primary-button").hidden = false;
 
+          const clickOnceKey = "wa_whatsapp_clicked_" + slug;
           $("primary-button").addEventListener("click", () => {
-            track("whatsapp_click", "primary");
+            // Browser-side guard prevents repeat clicks from sending extra events.
+            // The API also enforces uniqueness by (slug, session_token).
+            let alreadyCounted = false;
+            try {
+              alreadyCounted = localStorage.getItem(clickOnceKey) === "1";
+              if (!alreadyCounted) localStorage.setItem(clickOnceKey, "1");
+            } catch {}
+            if (!alreadyCounted) track("whatsapp_click", "primary");
           });
 
           document.title = "Click to Open WhatsApp";
