@@ -40,22 +40,30 @@ export async function onRequestPost({ request, env }) {
     }
 
     let countEvent = true;
-    if (eventType === "whatsapp_click" && sessionToken) {
-      // Deduplicate by the browser/device token, not IP. Different people sharing
-      // one Wi-Fi can still be counted separately; the same browser/device and
-      // link counts only once. This is a browser-level approximation of a device.
-      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS unique_device_clicks (
+    let customerCode = null;
+
+    // Deduplicate each event by the assigned customer code, not by IP or raw clicks.
+    if (sessionToken) {
+      const session = await env.DB.prepare(
+        "SELECT customer_code FROM customer_code_sessions WHERE slug = ? AND session_token = ? LIMIT 1"
+      ).bind(slug, sessionToken).first().catch(() => null);
+      customerCode = session?.customer_code || null;
+    }
+
+    if (customerCode) {
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS unique_customer_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         slug TEXT NOT NULL,
-        device_token TEXT NOT NULL,
+        customer_code TEXT NOT NULL,
+        event_type TEXT NOT NULL,
         first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-        UNIQUE(slug, device_token)
+        UNIQUE(slug, customer_code, event_type)
       )`).run();
 
       try {
         await env.DB.prepare(
-          "INSERT INTO unique_device_clicks (slug, device_token) VALUES (?, ?)"
-        ).bind(slug, sessionToken).run();
+          "INSERT INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, ?)"
+        ).bind(slug, customerCode, eventType).run();
       } catch (error) {
         if (/unique constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(String(error?.message || error))) {
           countEvent = false;
