@@ -18,7 +18,7 @@ export async function onRequestPost({ request, env }) {
 
   try {
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS landing_code_counters (
-      code_prefix TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
+      slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
     )`).run();
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS customer_code_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,8 +51,8 @@ export async function onRequestPost({ request, env }) {
 
     if (!session) {
       const counter = await env.DB.prepare(`
-        INSERT INTO landing_code_counters (code_prefix, last_number) VALUES (?, 1)
-        ON CONFLICT(code_prefix) DO UPDATE SET last_number = last_number + 1
+        INSERT INTO landing_code_counters (slug, last_number) VALUES (?, 1)
+        ON CONFLICT(slug) DO UPDATE SET last_number = last_number + 1
         RETURNING last_number
       `).bind(prefix).first();
       const code = prefix + "/-" + counter.last_number;
