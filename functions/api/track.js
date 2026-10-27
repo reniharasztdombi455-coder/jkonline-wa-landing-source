@@ -40,30 +40,27 @@ export async function onRequestPost({ request, env }) {
     }
 
     let countEvent = true;
-    if (eventType === "whatsapp_click") {
-      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS unique_link_clicks (
+    if (eventType === "whatsapp_click" && sessionToken) {
+      // Deduplicate by the browser/device token, not IP. Different people sharing
+      // one Wi-Fi can still be counted separately; the same browser/device and
+      // link counts only once. This is a browser-level approximation of a device.
+      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS unique_device_clicks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         slug TEXT NOT NULL,
-        ip_hash TEXT NOT NULL,
+        device_token TEXT NOT NULL,
         first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-        UNIQUE(slug, ip_hash)
+        UNIQUE(slug, device_token)
       )`).run();
 
-      const ip = clean(request.headers.get("CF-Connecting-IP"), 80);
-      if (ip) {
-        const material = new TextEncoder().encode(slug + "|" + ip + "|" + (env.IP_HASH_SECRET || "wa-link-click-v1"));
-        const digest = await crypto.subtle.digest("SHA-256", material);
-        const ipHash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
-        try {
-          await env.DB.prepare(
-            "INSERT INTO unique_link_clicks (slug, ip_hash) VALUES (?, ?)"
-          ).bind(slug, ipHash).run();
-        } catch (error) {
-          if (/unique constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(String(error?.message || error))) {
-            countEvent = false;
-          } else {
-            throw error;
-          }
+      try {
+        await env.DB.prepare(
+          "INSERT INTO unique_device_clicks (slug, device_token) VALUES (?, ?)"
+        ).bind(slug, sessionToken).run();
+      } catch (error) {
+        if (/unique constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(String(error?.message || error))) {
+          countEvent = false;
+        } else {
+          throw error;
         }
       }
     }
