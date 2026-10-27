@@ -379,6 +379,7 @@
         params.get("id") ||
         ""
       ).trim();
+      let sessionToken = "";
 
       function cleanText(value, max = 500) {
         return String(value ?? "")
@@ -423,6 +424,7 @@
 
         const payload = {
           slug,
+          session_token: sessionToken,
           event_type: eventType,
           button_type: buttonType,
           page_path: window.location.pathname,
@@ -447,9 +449,33 @@
           return;
         }
 
-        track("page_view");
-
         try {
+          const storageKey = "wa_customer_session_" + slug;
+          try {
+            sessionToken = localStorage.getItem(storageKey) || "";
+            if (!/^[A-Za-z0-9_-]{20,80}$/.test(sessionToken)) sessionToken = "";
+            if (!sessionToken) {
+              sessionToken = (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2))).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+              localStorage.setItem(storageKey, sessionToken);
+            }
+          } catch {
+            sessionToken = (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+          }
+
+          const assignedResponse = await fetch("/api/assign-code", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, session_token: sessionToken }),
+            cache: "no-store",
+            credentials: "same-origin"
+          });
+          const assigned = await assignedResponse.json().catch(() => ({}));
+          if (!assignedResponse.ok || !assigned.code) {
+            throw new Error(assigned.error || "Unable to assign your customer code.");
+          }
+          const assignedMessage = cleanText(assigned.message, 800);
+          track("page_view");
+
           // 使用项目中已配置的公开接口。
           const response = await fetch(
             "/api/public-config?slug=" + encodeURIComponent(slug),
@@ -470,7 +496,7 @@
           }
 
           const config = result.link;
-          const message = cleanText(config.message, 800);
+          const message = assignedMessage;
           const target = whatsappUrl(config.phone, message);
 
           if (!target) {
