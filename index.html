@@ -338,13 +338,13 @@
 
     <div class="divider" aria-hidden="true"></div>
 
-    <section class="code-panel">
+    <section class="code-panel" id="message-box">
       <div class="field-label">
         <strong>Your Position Code</strong>
         <span>Please send this code to your account manager.</span>
       </div>
 
-      <div class="code-box" id="message-box">
+      <div class="code-box">
         <span id="message-text">Loading...</span>
       </div>
     </section>
@@ -371,8 +371,14 @@
       "use strict";
 
       const $ = (id) => document.getElementById(id);
-      const params = new URLSearchParams(location.search);
-      const slug = (params.get("slug") || "").trim();
+      const params = new URLSearchParams(window.location.search);
+
+      // 新链接使用 slug；旧链接使用 id，兼容两种格式。
+      const slug = (
+        params.get("slug") ||
+        params.get("id") ||
+        ""
+      ).trim();
 
       function cleanText(value, max = 500) {
         return String(value ?? "")
@@ -381,9 +387,8 @@
           .slice(0, max);
       }
 
-      function setStatus(message, isError = false) {
+      function setStatus(message) {
         $("status").textContent = message;
-        $("status").classList.toggle("error", isError);
         $("status").hidden = !message;
       }
 
@@ -420,26 +425,24 @@
           slug,
           event_type: eventType,
           button_type: buttonType,
-          page_path: location.pathname,
+          page_path: window.location.pathname,
           referrer_host: getReferrerHost()
         };
 
-        try {
-          fetch("/api/track", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload),
-            keepalive: true,
-            credentials: "same-origin"
-          }).catch(() => {});
-        } catch {}
+        fetch("/api/track", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload),
+          keepalive: true,
+          credentials: "same-origin"
+        }).catch(() => {});
       }
 
       async function init() {
         if (!slug || !/^[a-zA-Z0-9_-]{1,80}$/.test(slug)) {
-          setStatus("Missing or invalid landing page link ID.", true);
+          setStatus("Missing or invalid landing page link ID.");
           $("message-box").hidden = true;
           return;
         }
@@ -447,8 +450,9 @@
         track("page_view");
 
         try {
+          // 使用项目中已配置的公开接口。
           const response = await fetch(
-            "/api/landing?slug=" + encodeURIComponent(slug),
+            "/api/public-config?slug=" + encodeURIComponent(slug),
             {
               method: "GET",
               cache: "no-store",
@@ -460,7 +464,8 @@
 
           if (!response.ok || !result.link) {
             throw new Error(
-              result.error || "Unable to load page configuration. Please try again."
+              result.error ||
+              "Unable to load page configuration. Please try again."
             );
           }
 
@@ -474,28 +479,21 @@
             );
           }
 
-          $("page-title").textContent = "Click to Open WhatsApp";
-          $("page-description").textContent =
-            "You will be assigned a dedicated account manager.";
           $("message-text").textContent =
             message || "No position code has been configured.";
 
-          document.title = "Click to Open WhatsApp";
-          document.documentElement.lang = "en";
-
           $("primary-button").href = target;
-          $("button-label").textContent = "Click to Send";
           $("primary-button").hidden = false;
 
           $("primary-button").addEventListener("click", () => {
             track("whatsapp_click", "primary");
           });
 
+          document.title = "Click to Open WhatsApp";
           setStatus("");
         } catch (error) {
           setStatus(
-            error.message || "Loading failed. Please try again later.",
-            true
+            error.message || "Loading failed. Please try again later."
           );
 
           $("message-box").hidden = true;
