@@ -39,37 +39,39 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ error: "Link not found" }, { status: 404 });
     }
 
-    let countEvent = true;
-    let customerCode = null;
-
-    // Deduplicate each event by the assigned customer code, not by IP or raw clicks.
-    if (sessionToken) {
-      const session = await env.DB.prepare(
-        "SELECT customer_code FROM customer_code_sessions WHERE slug = ? AND session_token = ? LIMIT 1"
-      ).bind(slug, sessionToken).first().catch(() => null);
-      customerCode = session?.customer_code || null;
+    if (!sessionToken || !/^[A-Za-z0-9_-]{20,80}$/.test(sessionToken)) {
+      return Response.json({ error: "Missing customer session; event was not counted." }, { status: 400 });
     }
 
-    if (customerCode) {
-      await env.DB.prepare(`CREATE TABLE IF NOT EXISTS unique_customer_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        slug TEXT NOT NULL,
-        customer_code TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-        UNIQUE(slug, customer_code, event_type)
-      )`).run();
+    const session = await env.DB.prepare(
+      "SELECT customer_code FROM customer_code_sessions WHERE slug = ? AND session_token = ? LIMIT 1"
+    ).bind(slug, sessionToken).first();
 
-      try {
-        await env.DB.prepare(
-          "INSERT INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, ?)"
-        ).bind(slug, customerCode, eventType).run();
-      } catch (error) {
-        if (/unique constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(String(error?.message || error))) {
-          countEvent = false;
-        } else {
-          throw error;
-        }
+    if (!session?.customer_code) {
+      return Response.json({ error: "Customer code session not found; event was not counted." }, { status: 409 });
+    }
+
+    const customerCode = session.customer_code;
+    let countEvent = true;
+
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS unique_customer_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL,
+      customer_code TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      UNIQUE(slug, customer_code, event_type)
+    )`).run();
+
+    try {
+      await env.DB.prepare(
+        "INSERT INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, ?)"
+      ).bind(slug, customerCode, eventType).run();
+    } catch (error) {
+      if (/unique constraint|SQLITE_CONSTRAINT_UNIQUE/i.test(String(error?.message || error))) {
+        countEvent = false;
+      } else {
+        throw error;
       }
     }
 
