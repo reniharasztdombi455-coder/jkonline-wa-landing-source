@@ -22,7 +22,7 @@ export async function onRequestPost({ request, env }) {
 
   const slug = clean(body.slug, 80);
 
-  if (!slug || !/^[a-zA-Z0-9_-]+$/.test(slug)) {
+  if (!slug || !/^[A-Za-z0-9_-]{1,80}$/.test(slug)) {
     return Response.json({ error: "Invalid link ID" }, { status: 400 });
   }
 
@@ -53,7 +53,7 @@ export async function onRequestPost({ request, env }) {
       link.ad,
       clean(body.button_type, 40) || null,
       clean(body.page_path, 180) || "/",
-      null
+      clean(body.referrer_host, 120) || null
     ).run();
 
     return Response.json(
