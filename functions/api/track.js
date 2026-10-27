@@ -21,6 +21,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const slug = clean(body.slug, 80);
+  const sessionToken = clean(body.session_token, 80);
 
   if (!slug || !/^[A-Za-z0-9_-]{1,80}$/.test(slug)) {
     return Response.json({ error: "Invalid link ID" }, { status: 400 });
@@ -36,6 +37,13 @@ export async function onRequestPost({ request, env }) {
 
     if (!link) {
       return Response.json({ error: "Link not found" }, { status: 404 });
+    }
+
+    if (sessionToken) {
+      const column = eventType === "page_view" ? "page_views" : "whatsapp_clicks";
+      await env.DB.prepare(
+        "UPDATE customer_code_sessions SET " + column + " = " + column + " + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?"
+      ).bind(slug, sessionToken).run().catch(() => {});
     }
 
     await env.DB.prepare(
