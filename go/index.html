@@ -14,6 +14,7 @@
     h1{font-size:23px;margin:0 0 10px}p{color:#657168;line-height:1.6;font-size:15px}
     a{display:flex;justify-content:center;align-items:center;min-height:52px;margin-top:18px;border-radius:999px;background:#128c4a;color:white;text-decoration:none;font-weight:700;padding:12px 18px}
     #error{color:#a4261d}
+    #timings{margin-top:16px;padding:12px;background:#f4f7f5;border-radius:12px;text-align:left;font:13px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap}
   </style>
 </head>
 <body>
@@ -23,6 +24,7 @@
     <p id="detail">Please wait while we prepare your WhatsApp chat.</p>
     <a id="manual" href="#" hidden>Continue to WhatsApp</a>
     <p id="error" hidden></p>
+    <pre id="timings" hidden></pre>
   </main>
   <script>
     (async () => {
@@ -31,6 +33,19 @@
       const slug = (params.get("slug") || params.get("id") || "").trim();
       let sessionToken = "";
       let target = "";
+      const debug = params.get("debug") === "1";
+      const startedAt = performance.now();
+      const timings = {};
+      function showTimings() {
+        const total = (performance.now() - startedAt).toFixed(0);
+        $("timings").textContent = `诊断模式（不自动跳转）\\n客户编号接口：${timings.assignCode ?? "-"} ms\\n号码分配接口：${timings.assignWa ?? "-"} ms\\n页面准备总耗时：${total} ms\\n\\n点击下方按钮继续打开 WhatsApp。`;
+        $("timings").hidden = false;
+        $("heading").textContent = "耗时诊断完成";
+        $("detail").textContent = "已记录跳转前的接口耗时。";
+        $("manual").textContent = "继续前往 WhatsApp";
+        $("manual").href = target;
+        $("manual").hidden = false;
+      }
 
       function setError(message) {
         $("heading").textContent = "WhatsApp could not open automatically";
@@ -97,6 +112,7 @@
         }
 
         // Customer-code API already returns the personalized message, so avoid an extra config request.
+        const assignCodeStarted = performance.now();
         const assignedResponse = await fetch("/api/assign-code", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -105,11 +121,13 @@
           credentials:"same-origin"
         });
         const assigned = await assignedResponse.json().catch(() => ({}));
+        timings.assignCode = (performance.now() - assignCodeStarted).toFixed(0);
         if (!assignedResponse.ok || !assigned.code || !assigned.message) {
           throw new Error(assigned.error || "Could not create the customer code.");
         }
 
         // Number assignment depends on the customer-code session, so it runs after assign-code.
+        const assignWaStarted = performance.now();
         const routeResponse = await fetch("/api/assign-wa", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -118,6 +136,7 @@
           credentials:"same-origin"
         });
         const route = await routeResponse.json().catch(() => ({}));
+        timings.assignWa = (performance.now() - assignWaStarted).toFixed(0);
         if (!routeResponse.ok || !route.phone) throw new Error(route.error || "Could not assign a WhatsApp number.");
 
         target = makeWhatsAppUrl(route.phone, assigned.message);
@@ -131,8 +150,12 @@
         void track("page_view", "direct");
         void track("whatsapp_click", "direct");
 
-        // Navigate as soon as the required customer code and number are ready.
-        location.replace(target);
+        // Diagnostic mode displays timings and waits for a manual click; normal mode redirects immediately.
+        if (debug) {
+          showTimings();
+        } else {
+          location.replace(target);
+        }
       } catch (error) {
         setError(error && error.message ? error.message : "Please try again.");
       }
