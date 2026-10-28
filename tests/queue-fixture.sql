@@ -27,10 +27,3 @@ CREATE TABLE IF NOT EXISTS events (
 );
 INSERT OR REPLACE INTO landing_links(id,slug,name,phone,message,source,agent,campaign,ad,enabled)
 VALUES(1,'queue-test','Queue local test','15551234567','Hello, my code is TEST-AB/-1.','ci','test-agent','queue-ci','fixture',1);
-DELETE FROM wa_numbers;
-INSERT INTO wa_numbers(id,label,phone,max_per_cycle,sort_order,enabled) VALUES
- (1,'Test number 1','15551230001',1,1,1),
- (2,'Test number 2','15551230002',1,2,1),
- (3,'Test number 3','15551230003',1,3,1),
- (4,'Test number 4','15551230004',1,4,1),
- (5,'Test number 5','15551230005',1,5,1);
