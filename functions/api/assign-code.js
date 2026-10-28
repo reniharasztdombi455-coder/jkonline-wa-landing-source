@@ -16,7 +16,9 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Invalid link ID or browser session" }, 400);
   }
 
+  const perf = { totalStart: Date.now() };
   try {
+    let stageStart = Date.now();
     await env.DB.prepare(`CREATE TABLE IF NOT EXISTS landing_code_counters (
       slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
     )`).run();
@@ -34,6 +36,8 @@ export async function onRequestPost({ request, env }) {
       UNIQUE(slug, session_token)
     )`).run();
 
+    perf.schemaMs = Date.now() - stageStart;
+    stageStart = Date.now();
     const link = await env.DB.prepare(`SELECT id, slug, phone, message, source, agent, enabled
       FROM landing_links WHERE slug = ? LIMIT 1`).bind(slug).first();
     if (!link || !link.enabled) return json({ error: "Link not found or disabled" }, 404);
@@ -45,10 +49,13 @@ export async function onRequestPost({ request, env }) {
     }
     const prefix = match[1];
 
+    stageStart = Date.now();
     let session = await env.DB.prepare(
       "SELECT customer_code FROM customer_code_sessions WHERE slug = ? AND session_token = ? LIMIT 1"
     ).bind(slug, token).first();
 
+    perf.sessionLookupMs = Date.now() - stageStart;
+    stageStart = Date.now();
     if (!session) {
       const counter = await env.DB.prepare(`
         INSERT INTO landing_code_counters (slug, last_number) VALUES (?, 1)
@@ -70,14 +77,21 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
+    perf.createOrReuseSessionMs = Date.now() - stageStart;
+    stageStart = Date.now();
     await env.DB.prepare(`UPDATE customer_code_sessions
       SET last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now')
       WHERE slug = ? AND session_token = ?`).bind(slug, token).run();
 
+    perf.lastSeenUpdateMs = Date.now() - stageStart;
+    perf.totalMs = Date.now() - perf.totalStart;
+    console.log("[wa-timing] assign-code", JSON.stringify(perf));
     const code = session.customer_code;
     const personalizedMessage = String(link.message || "").replace(pattern, code);
     return json({ code, message: personalizedMessage, session_token: token });
   } catch (error) {
+    perf.totalMs = Date.now() - perf.totalStart;
+    console.log("[wa-timing] assign-code-error", JSON.stringify(perf));
     return json({ error: "Could not assign customer code: " + String(error?.message || error).slice(0, 160) }, 500);
   }
 }
