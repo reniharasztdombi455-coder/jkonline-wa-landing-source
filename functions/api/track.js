@@ -16,7 +16,7 @@ export async function onRequestPost({ request, env }) {
 
   const eventType = clean(body.event_type, 30);
 
-  if (!["page_view", "whatsapp_click"].includes(eventType)) {
+  if (!["page_view", "whatsapp_click", "whatsapp_open_attempt"].includes(eventType)) {
     return Response.json({ error: "Invalid event type" }, { status: 400 });
   }
 
