@@ -146,14 +146,22 @@
         $("manual").hidden = false;
         $("detail").textContent = "Continuing to WhatsApp…";
 
-        // Start tracking without blocking navigation. keepalive lets the requests finish after page navigation.
-        void track("page_view", "direct");
-        void track("whatsapp_click", "direct");
+        // Page views and actual user clicks are distinct from an automatic handoff attempt.
+        void track("page_view", debug ? "diagnostic" : "auto_redirect");
 
-        // Diagnostic mode displays timings and waits for a manual click; normal mode redirects immediately.
+        // In diagnostic mode, the button records a real click. Automatic redirects
+        // are recorded as an open attempt, never mislabeled as a user click.
+        $("manual").addEventListener("click", async (event) => {
+          event.preventDefault();
+          const destination = target || $("manual").href;
+          await track("whatsapp_click", debug ? "diagnostic_button" : "manual_fallback");
+          if (destination) location.href = destination;
+        }, { once: true });
+
         if (debug) {
           showTimings();
         } else {
+          void track("whatsapp_open_attempt", "auto_redirect");
           location.replace(target);
         }
       } catch (error) {
