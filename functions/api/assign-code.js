@@ -40,6 +40,7 @@ export async function onRequestPost({ request, env }) {
     stageStart = Date.now();
     const link = await env.DB.prepare(`SELECT id, slug, phone, message, source, agent, enabled
       FROM landing_links WHERE slug = ? LIMIT 1`).bind(slug).first();
+    perf.linkLookupMs = Date.now() - stageStart;
     if (!link || !link.enabled) return json({ error: "Link not found or disabled" }, 404);
 
     const pattern = /([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\/-\d+/;
