@@ -76,7 +76,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (sessionToken && countEvent) {
-      const column = eventType === "page_view" ? "page_views" : "whatsapp_clicks";
+      const column = eventType === "page_view" ? "page_views" : (eventType === "whatsapp_click" ? "whatsapp_clicks" : null);
       await env.DB.prepare(
         "UPDATE customer_code_sessions SET " + column + " = " + column + " + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?"
       ).bind(slug, sessionToken).run().catch(() => {});
