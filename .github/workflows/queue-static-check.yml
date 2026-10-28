@@ -61,19 +61,29 @@ jobs:
           node-version: 22
       - name: Install Wrangler for local-only D1
         run: npm install --no-save wrangler
+      - name: Create standard-path isolated test config
+        run: |
+          cat > wrangler.jsonc <<'JSON'
+          {
+            "name": "jkonline-wa-landing-local-tests",
+            "pages_build_output_dir": "./",
+            "compatibility_date": "2026-10-27",
+            "d1_databases": [{"binding":"DB","database_name":"jkonline-wa-local-test-only","database_id":"00000000-0000-0000-0000-000000000001"}]
+          }
+          JSON
       - name: Initialize isolated local database fixture
-        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.test.toml --file tests/queue-fixture.sql
+        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/queue-fixture.sql
       - name: Start Pages against isolated local D1 and initialize queue tables
         run: |
-          npx wrangler pages dev . --config wrangler.test.toml --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
           echo $! > /tmp/pages-dev.pid
           for i in $(seq 1 40); do
-            if curl -sS -o /dev/null http://127.0.0.1:8788/ 2>/dev/null; then break; fi
+            if curl -fsS http://127.0.0.1:8788/api/queue-claim -X POST -H 'content-type: application/json' --data '{"slug":"queue-test","session_token":"session_test_token_0000_abcdefgh"}' > /tmp/first-claim.json 2>/dev/null; then break; fi
             sleep 1
           done
-          curl -sS -o /dev/null -X POST http://127.0.0.1:8788/api/queue-claim -H 'content-type: application/json' --data '{"slug":"queue-test","session_token":"session_test_token_0000_abcdefgh"}' || true
+          if ! grep -q '"ok":true' /tmp/first-claim.json; then cat /tmp/pages-dev.log; cat /tmp/first-claim.json || true; exit 1; fi
       - name: Seed test numbers into local-only D1
-        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.test.toml --file tests/queue-seed-numbers.sql
+        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/queue-seed-numbers.sql
       - name: Verify idempotent and concurrent claims
         run: node tests/queue-smoke.test.cjs
       - name: Show local Pages logs on failure
