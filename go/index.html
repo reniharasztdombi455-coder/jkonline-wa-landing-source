@@ -96,25 +96,18 @@
             .replace(/[^A-Za-z0-9_-]/g, "").slice(0,80);
         }
 
-        // Load the config and create the customer code concurrently; both are independent.
-        const [assignedResult, configResult] = await Promise.all([
-          fetch("/api/assign-code", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({slug,session_token:sessionToken}),
-            cache:"no-store",
-            credentials:"same-origin"
-          }).then(async response => ({response, data:await response.json().catch(() => ({}))})),
-          fetch("/api/public-config?slug=" + encodeURIComponent(slug), {
-            method:"GET", cache:"no-store", credentials:"same-origin"
-          }).then(async response => ({response, data:await response.json().catch(() => ({}))}))
-        ]);
-        const assignedResponse = assignedResult.response;
-        const assigned = assignedResult.data;
-        const configResponse = configResult.response;
-        const config = configResult.data;
-        if (!assignedResponse.ok || !assigned.code) throw new Error(assigned.error || "Could not create the customer code.");
-        if (!configResponse.ok || !config.link) throw new Error(config.error || "Could not load this link.");
+        // Customer-code API already returns the personalized message, so avoid an extra config request.
+        const assignedResponse = await fetch("/api/assign-code", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({slug,session_token:sessionToken}),
+          cache:"no-store",
+          credentials:"same-origin"
+        });
+        const assigned = await assignedResponse.json().catch(() => ({}));
+        if (!assignedResponse.ok || !assigned.code || !assigned.message) {
+          throw new Error(assigned.error || "Could not create the customer code.");
+        }
 
         // Number assignment depends on the customer-code session, so it runs after assign-code.
         const routeResponse = await fetch("/api/assign-wa", {
@@ -127,7 +120,7 @@
         const route = await routeResponse.json().catch(() => ({}));
         if (!routeResponse.ok || !route.phone) throw new Error(route.error || "Could not assign a WhatsApp number.");
 
-        target = makeWhatsAppUrl(route.phone, assigned.message || config.link.message || "");
+        target = makeWhatsAppUrl(route.phone, assigned.message);
         if (!target) throw new Error("The assigned WhatsApp number is invalid.");
 
         $("manual").href = target;
