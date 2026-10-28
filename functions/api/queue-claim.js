@@ -195,7 +195,13 @@ export async function onRequestPost({ request, env, waitUntil }) {
         VALUES(?,?,?,?,?)`).bind(slug,token,claimed.customer_code,link.source||"direct",link.agent||"unknown").run();
     } catch (error) {
       const session = await env.DB.prepare("SELECT customer_code FROM customer_code_sessions WHERE slug=? AND session_token=? LIMIT 1").bind(slug,token).first();
-      if (!session) throw error;
+      if (!session) {
+        // The claim was consumed but no session row was persisted. Restore the
+        // queue item so a transient database failure cannot permanently drain it.
+        await env.DB.prepare("UPDATE wa_prefetch_queue SET status='ready',claimed_session_token=NULL,claimed_at=NULL WHERE id=? AND status='claimed' AND claimed_session_token=?")
+          .bind(claimed.id,token).run().catch(() => {});
+        throw error;
+      }
       // A parallel request with the same browser token may have claimed a second
       // queue row before the first session insert won. Release that extra row and
       // return the pair belonging to the already-persisted customer code.
