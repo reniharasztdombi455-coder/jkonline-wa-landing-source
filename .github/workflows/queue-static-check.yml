@@ -94,6 +94,12 @@ jobs:
           result=$(npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --command "SELECT COUNT(*) AS ready_count FROM wa_prefetch_queue WHERE slug='queue-test' AND status='ready';")
           echo "$result"
           echo "$result" | grep -Eq '"ready_count"[[:space:]]*:[[:space:]]*3'
+
+      - name: Verify WhatsApp per-cycle capacity is never exceeded
+        run: |
+          result=$(npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --command "SELECT COUNT(*) AS violations FROM (SELECT a.wa_number_id,a.cycle,COUNT(*) AS assigned,n.max_per_cycle FROM wa_assignments a JOIN wa_numbers n ON n.id=a.wa_number_id GROUP BY a.wa_number_id,a.cycle HAVING COUNT(*) > MAX(1,n.max_per_cycle));")
+          echo "$result"
+          echo "$result" | grep -Eq '"violations"[[:space:]]*:[[:space:]]*0'
       - name: Verify analytics event semantics and deduplication
         run: node tests/analytics-smoke.test.cjs
       - name: Show local Pages logs on failure
