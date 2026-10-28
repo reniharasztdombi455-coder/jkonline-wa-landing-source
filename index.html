@@ -419,8 +419,8 @@
         }
       }
 
-      function track(eventType, buttonType = null) {
-        if (!slug) return;
+      async function track(eventType, buttonType = null) {
+        if (!slug) return false;
 
         const payload = {
           slug,
@@ -431,15 +431,22 @@
           referrer_host: getReferrerHost()
         };
 
-        fetch("/api/track", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload),
-          keepalive: true,
-          credentials: "same-origin"
-        }).catch(() => {});
+        try {
+          const response = await fetch("/api/track", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload),
+            keepalive: true,
+            credentials: "same-origin"
+          });
+          if (!response.ok) return false;
+          const result = await response.json().catch(() => ({}));
+          return result.ok === true;
+        } catch {
+          return false;
+        }
       }
 
       async function init() {
@@ -511,7 +518,6 @@
           $("primary-button").href = target;
           $("primary-button").hidden = false;
 
-          const clickOnceKey = "wa_whatsapp_clicked_" + slug;
           $("primary-button").addEventListener("click", async (event) => {
             event.preventDefault();
             const button = $("primary-button");
@@ -532,12 +538,13 @@
               }
               const target = whatsappUrl(route.phone, message);
               if (!target) throw new Error("The assigned WhatsApp number is invalid.");
-              let alreadyCounted = false;
-              try {
-                alreadyCounted = localStorage.getItem(clickOnceKey) === "1";
-                if (!alreadyCounted) localStorage.setItem(clickOnceKey, "1");
-              } catch {}
-              if (!alreadyCounted) track("whatsapp_click", "primary");
+
+              // 服务端按 slug + customer_code + event_type 去重。
+              // 不再使用“每条链接一个本地标记”，避免同一设备上的不同客户互相漏计。
+              // 等待统计接口确认；若请求失败，重试一次。统计失败也不能阻止客户打开 WhatsApp。
+              let tracked = await track("whatsapp_click", "primary");
+              if (!tracked) tracked = await track("whatsapp_click", "primary");
+
               window.location.href = target;
             } catch (error) {
               setStatus(error.message || "Unable to connect to WhatsApp. Please try again.");
