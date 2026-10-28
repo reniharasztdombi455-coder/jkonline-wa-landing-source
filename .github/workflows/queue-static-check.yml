@@ -77,11 +77,14 @@ jobs:
         run: |
           npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
           echo $! > /tmp/pages-dev.pid
+          ready=0
           for i in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:8788/api/queue-claim -X POST -H 'content-type: application/json' --data '{"slug":"queue-test","session_token":"session_test_token_0000_abcdefgh"}' > /tmp/first-claim.json 2>/dev/null; then break; fi
+            if curl --max-time 3 -sS -o /tmp/first-claim.json -w '%{http_code}' http://127.0.0.1:8788/api/queue-claim -X POST -H 'content-type: application/json' --data '{"slug":"queue-test","session_token":"session_test_token_0000_abcdefgh"}' > /tmp/first-claim-status 2>/dev/null; then ready=1; break; fi
             sleep 1
           done
-          if ! grep -q '"ok":true' /tmp/first-claim.json; then cat /tmp/pages-dev.log; cat /tmp/first-claim.json || true; exit 1; fi
+          if [ "$ready" != 1 ]; then cat /tmp/pages-dev.log; exit 1; fi
+          # No phone rows exist yet; 503 is expected and confirms schema initialization.
+          if [ "$(cat /tmp/first-claim-status)" != "503" ]; then cat /tmp/first-claim.json; cat /tmp/pages-dev.log; exit 1; fi
       - name: Seed test numbers into local-only D1
         run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/queue-seed-numbers.sql
       - name: Verify idempotent and concurrent claims
