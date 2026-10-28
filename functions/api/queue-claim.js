@@ -190,6 +190,19 @@ export async function onRequestPost({ request, env, waitUntil }) {
     } catch (error) {
       const session = await env.DB.prepare("SELECT customer_code FROM customer_code_sessions WHERE slug=? AND session_token=? LIMIT 1").bind(slug,token).first();
       if (!session) throw error;
+      // A parallel request with the same browser token may have claimed a second
+      // queue row before the first session insert won. Release that extra row and
+      // return the pair belonging to the already-persisted customer code.
+      if (session.customer_code !== claimed.customer_code) {
+        await env.DB.prepare("UPDATE wa_prefetch_queue SET status='ready',claimed_session_token=NULL,claimed_at=NULL WHERE id=? AND status='claimed' AND claimed_session_token=?").bind(claimed.id,token).run();
+        const original = await env.DB.prepare("SELECT n.phone,n.label,a.cycle FROM wa_assignments a JOIN wa_numbers n ON n.id=a.wa_number_id WHERE a.slug=? AND a.customer_code=? LIMIT 1").bind(slug,session.customer_code).first();
+        if (!original?.phone) throw error;
+        const originalMessage = String(link.message || "").replace(pattern,session.customer_code);
+        const doRefill = () => refill(env.DB,link,prefix,3).catch(refillError => console.log("[wa-queue-refill-error]",String(refillError?.message||refillError).slice(0,180)));
+        if (typeof waitUntil === "function") waitUntil(doRefill()); else await doRefill();
+        console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"parallel-reuse"}));
+        return json({ok:true,code:session.customer_code,message:originalMessage,phone:original.phone,label:original.label,cycle:original.cycle,queueReady:await readyCount(env.DB,slug)});
+      }
     }
 
     const number = await env.DB.prepare("SELECT phone,label FROM wa_numbers WHERE id=? LIMIT 1").bind(claimed.wa_number_id).first();
