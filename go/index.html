@@ -38,7 +38,7 @@
       const timings = {};
       function showTimings() {
         const total = (performance.now() - startedAt).toFixed(0);
-        $("timings").textContent = `诊断模式（不自动跳转）\\n客户编号接口：${timings.assignCode ?? "-"} ms\\n号码分配接口：${timings.assignWa ?? "-"} ms\\n页面准备总耗时：${total} ms\\n\\n点击下方按钮继续打开 WhatsApp。`;
+        $("timings").textContent = `诊断模式（不自动跳转）\\n预备资源领取接口：${timings.queueClaim ?? "-"} ms\\n页面准备总耗时：${total} ms\\n\\n点击下方按钮继续打开 WhatsApp。`;
         $("timings").hidden = false;
         $("heading").textContent = "耗时诊断完成";
         $("detail").textContent = "已记录跳转前的接口耗时。";
@@ -111,35 +111,22 @@
             .replace(/[^A-Za-z0-9_-]/g, "").slice(0,80);
         }
 
-        // Customer-code API already returns the personalized message, so avoid an extra config request.
-        const assignCodeStarted = performance.now();
-        const assignedResponse = await fetch("/api/assign-code", {
+        // Claim one pre-reserved customer-code + WhatsApp-number pair in one request.
+        const queueStarted = performance.now();
+        const claimResponse = await fetch("/api/queue-claim", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
           body:JSON.stringify({slug,session_token:sessionToken}),
           cache:"no-store",
           credentials:"same-origin"
         });
-        const assigned = await assignedResponse.json().catch(() => ({}));
-        timings.assignCode = (performance.now() - assignCodeStarted).toFixed(0);
-        if (!assignedResponse.ok || !assigned.code || !assigned.message) {
-          throw new Error(assigned.error || "Could not create the customer code.");
+        const claimed = await claimResponse.json().catch(() => ({}));
+        timings.queueClaim = (performance.now() - queueStarted).toFixed(0);
+        if (!claimResponse.ok || !claimed.code || !claimed.message || !claimed.phone) {
+          throw new Error(claimed.error || "Could not claim a ready WhatsApp pair.");
         }
 
-        // Number assignment depends on the customer-code session, so it runs after assign-code.
-        const assignWaStarted = performance.now();
-        const routeResponse = await fetch("/api/assign-wa", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({slug,session_token:sessionToken}),
-          cache:"no-store",
-          credentials:"same-origin"
-        });
-        const route = await routeResponse.json().catch(() => ({}));
-        timings.assignWa = (performance.now() - assignWaStarted).toFixed(0);
-        if (!routeResponse.ok || !route.phone) throw new Error(route.error || "Could not assign a WhatsApp number.");
-
-        target = makeWhatsAppUrl(route.phone, assigned.message);
+        target = makeWhatsAppUrl(claimed.phone, claimed.message);
         if (!target) throw new Error("The assigned WhatsApp number is invalid.");
 
         $("manual").href = target;
