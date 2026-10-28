@@ -79,8 +79,14 @@ async function reserveOne(DB, link, prefix) {
   if (!reserved) return false;
 
   await DB.prepare("UPDATE wa_route_state SET cycle=MAX(cycle,?) WHERE id=1").bind(reserved.cycle).run();
-  await DB.prepare(`INSERT INTO wa_prefetch_queue(slug,customer_code,wa_number_id,cycle,status)
-    VALUES(?,?,?,?,'ready')`).bind(link.slug, code, reserved.wa_number_id, reserved.cycle).run();
+  try {
+    await DB.prepare(`INSERT INTO wa_prefetch_queue(slug,customer_code,wa_number_id,cycle,status)
+      VALUES(?,?,?,?,'ready')`).bind(link.slug, code, reserved.wa_number_id, reserved.cycle).run();
+  } catch (error) {
+    // Do not leave an invisible assignment consuming a phone's cycle capacity.
+    await DB.prepare("DELETE FROM wa_assignments WHERE slug=? AND customer_code=?").bind(link.slug,code).run().catch(() => {});
+    throw error;
+  }
   return true;
 }
 
