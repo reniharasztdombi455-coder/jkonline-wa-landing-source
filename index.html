@@ -512,15 +512,38 @@
           $("primary-button").hidden = false;
 
           const clickOnceKey = "wa_whatsapp_clicked_" + slug;
-          $("primary-button").addEventListener("click", () => {
-            // Browser-side guard prevents repeat clicks from sending extra events.
-            // The API also enforces uniqueness by (slug, session_token).
-            let alreadyCounted = false;
+          $("primary-button").addEventListener("click", async (event) => {
+            event.preventDefault();
+            const button = $("primary-button");
+            if (button.dataset.routing === "1") return;
+            button.dataset.routing = "1";
+            button.style.opacity = ".65";
             try {
-              alreadyCounted = localStorage.getItem(clickOnceKey) === "1";
-              if (!alreadyCounted) localStorage.setItem(clickOnceKey, "1");
-            } catch {}
-            if (!alreadyCounted) track("whatsapp_click", "primary");
+              const routeResponse = await fetch("/api/assign-wa", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ slug, session_token: sessionToken }),
+                cache: "no-store",
+                credentials: "same-origin"
+              });
+              const route = await routeResponse.json().catch(() => ({}));
+              if (!routeResponse.ok || !route.phone) {
+                throw new Error(route.error || "Unable to connect to WhatsApp. Please try again.");
+              }
+              const target = whatsappUrl(route.phone, message);
+              if (!target) throw new Error("The assigned WhatsApp number is invalid.");
+              let alreadyCounted = false;
+              try {
+                alreadyCounted = localStorage.getItem(clickOnceKey) === "1";
+                if (!alreadyCounted) localStorage.setItem(clickOnceKey, "1");
+              } catch {}
+              if (!alreadyCounted) track("whatsapp_click", "primary");
+              window.location.href = target;
+            } catch (error) {
+              setStatus(error.message || "Unable to connect to WhatsApp. Please try again.");
+              button.dataset.routing = "";
+              button.style.opacity = "";
+            }
           });
 
           document.title = "Click to Open WhatsApp";
