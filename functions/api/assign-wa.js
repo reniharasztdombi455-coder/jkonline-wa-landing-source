@@ -36,9 +36,13 @@ export async function onRequestPost({ request, env }) {
     let state = await env.DB.prepare("SELECT cycle FROM wa_route_state WHERE id=1").first();
     let cycle = Number(state?.cycle || 1);
     async function findAvailable(c) {
+      // Count assignments for all enabled numbers in one query instead of one query per number.
+      const countsResult = await env.DB.prepare(
+        "SELECT wa_number_id, COUNT(*) AS total FROM wa_assignments WHERE cycle=? GROUP BY wa_number_id"
+      ).bind(c).all();
+      const counts = new Map((countsResult.results || []).map(row => [Number(row.wa_number_id), Number(row.total || 0)]));
       for (const n of pool) {
-        const r = await env.DB.prepare("SELECT COUNT(*) AS total FROM wa_assignments WHERE wa_number_id=? AND cycle=?").bind(n.id,c).first();
-        if (Number(r?.total || 0) < Math.max(1, Number(n.max_per_cycle || 3))) return n;
+        if ((counts.get(Number(n.id)) || 0) < Math.max(1, Number(n.max_per_cycle || 3))) return n;
       }
       return null;
     }
