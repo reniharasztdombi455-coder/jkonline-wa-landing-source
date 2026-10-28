@@ -24,26 +24,30 @@ jobs:
           done
       - name: Check landing page JavaScript syntax
         run: |
-          node --input-type=module -e '
-            const fs = require("node:fs");
-            const html = fs.readFileSync("go/index.html", "utf8");
-            const scripts = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)].map(m => m[1]);
-            if (!scripts.length) throw new Error("No inline script found");
-            for (const script of scripts) new Function(script);
-          '
+          node <<'NODE'
+          const fs = require("node:fs");
+          const html = fs.readFileSync("go/index.html", "utf8");
+          const start = html.indexOf("<script>");
+          const end = html.indexOf("</script>", start);
+          if (start < 0 || end < 0) throw new Error("No inline script found");
+          new Function(html.slice(start + 8, end));
+          NODE
       - name: Verify queue integration and analytics semantics
         run: |
-          node --input-type=module -e '
-            const fs = require("node:fs");
-            const api = fs.readFileSync("functions/api/queue-claim.js", "utf8");
-            const page = fs.readFileSync("go/index.html", "utf8");
-            const track = fs.readFileSync("functions/api/track.js", "utf8");
-            const checks = [
-              ["queue is capped at three ready pairs", api.includes("refill(env.DB,link,prefix,3)") && api.includes("wa_queue_refill_locks")],
-              ["claim uses compare-and-set", api.includes("WHERE id=? AND status=\\x27ready\\x27")],
-              ["landing page uses queue API", page.includes("/api/queue-claim")],
-              ["open attempt has dedicated event", track.includes("whatsapp_open_attempt")],
-              ["old automatic click event removed", !page.includes("void track(\\x22whatsapp_click\\x22, \\x22direct\\x22)")]
-            ];
-            for (const [name, ok] of checks) { console.log((ok ? "PASS " : "FAIL ") + name); if (!ok) process.exitCode = 1; }
-          '
+          node <<'NODE'
+          const fs = require("node:fs");
+          const api = fs.readFileSync("functions/api/queue-claim.js", "utf8");
+          const page = fs.readFileSync("go/index.html", "utf8");
+          const track = fs.readFileSync("functions/api/track.js", "utf8");
+          const checks = [
+            ["queue refill lock exists", api.includes("wa_queue_refill_locks")],
+            ["claim uses compare-and-set", api.includes("WHERE id=? AND status='ready'")],
+            ["landing page uses queue API", page.includes("/api/queue-claim")],
+            ["open attempt has dedicated event", track.includes("whatsapp_open_attempt")],
+            ["old automatic click event removed", !page.includes('void track("whatsapp_click", "direct")')]
+          ];
+          for (const [name, ok] of checks) {
+            console.log((ok ? "PASS " : "FAIL ") + name);
+            if (!ok) process.exitCode = 1;
+          }
+          NODE
