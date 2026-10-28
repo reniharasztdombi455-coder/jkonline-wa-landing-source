@@ -28,6 +28,15 @@ async function claim(session_token) {
   const phones = [warm, ...concurrent].map(x => x.phone);
   assert.equal(new Set(codes).size, codes.length, "different sessions must receive unique customer codes");
   assert.equal(new Set(phones).size, phones.length, "simultaneous claims must not receive duplicate phone pairs");
-  const timings = [warm, ...concurrent].map(x => x);
-  console.log(JSON.stringify({ok:true,scenario:"local D1 queue claims",sessions:codes.length,uniqueCodes:new Set(codes).size,uniquePhones:new Set(phones).size,exampleQueueReady:warm.queueReady}));
+  // Simultaneous requests with the exact same browser token must converge
+  // on one persisted customer/phone pair even when they race for ready rows.
+  const sameToken = token(77);
+  const raced = await Promise.all([claim(sameToken), claim(sameToken), claim(sameToken)]);
+  assert.equal(new Set(raced.map(x => x.code)).size, 1, "parallel requests from one session must converge on one customer code");
+  assert.equal(new Set(raced.map(x => x.phone)).size, 1, "parallel requests from one session must converge on one phone");
+  await new Promise(resolve => setTimeout(resolve, 400));
+  const afterRace = await claim(sameToken);
+  assert.equal(afterRace.code, raced[0].code, "revisit after race must preserve the original customer code");
+  assert.equal(afterRace.phone, raced[0].phone, "revisit after race must preserve the original phone");
+  console.log(JSON.stringify({ok:true,scenario:"local D1 queue claims",sessions:codes.length,uniqueCodes:new Set(codes).size,uniquePhones:new Set(phones).size,parallelSameSessionRequests:raced.length,parallelSameSessionUniqueCodes:new Set(raced.map(x=>x.code)).size,parallelSameSessionUniquePhones:new Set(raced.map(x=>x.phone)).size,exampleQueueReady:warm.queueReady}));
 })().catch(error => { console.error(error); process.exit(1); });
