@@ -35,6 +35,9 @@ const schema = [
     wa_number_id INTEGER NOT NULL, cycle INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ready',
     claimed_session_token TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     claimed_at TEXT, UNIQUE(slug, customer_code)
+  )`,
+  `CREATE TABLE IF NOT EXISTS wa_queue_refill_locks (
+    slug TEXT PRIMARY KEY, locked_until INTEGER NOT NULL DEFAULT 0
   )`
 ];
 
@@ -82,11 +85,23 @@ async function reserveOne(DB, link, prefix) {
 }
 
 async function refill(DB, link, prefix, target = 3) {
-  for (let i = 0; i < 4; i++) {
-    const count = await readyCount(DB, link.slug);
-    if (count >= target) return;
-    const ok = await reserveOne(DB, link, prefix);
-    if (!ok) return;
+  // Serialize replenishment per link so parallel visitors cannot overfill the queue.
+  await DB.prepare("INSERT OR IGNORE INTO wa_queue_refill_locks(slug,locked_until) VALUES(?,0)").bind(link.slug).run();
+  const lock = await DB.prepare(`
+    UPDATE wa_queue_refill_locks SET locked_until=unixepoch()+60
+    WHERE slug=? AND locked_until < unixepoch()
+    RETURNING slug
+  `).bind(link.slug).first();
+  if (!lock) return;
+  try {
+    for (let i = 0; i < target; i++) {
+      const count = await readyCount(DB, link.slug);
+      if (count >= target) return;
+      const ok = await reserveOne(DB, link, prefix);
+      if (!ok) return;
+    }
+  } finally {
+    await DB.prepare("UPDATE wa_queue_refill_locks SET locked_until=0 WHERE slug=?").bind(link.slug).run();
   }
 }
 
