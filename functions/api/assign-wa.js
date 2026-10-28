@@ -17,20 +17,28 @@ export async function onRequestPost({ request, env }) {
     const session = await env.DB.prepare("SELECT customer_code FROM customer_code_sessions WHERE slug=? AND session_token=? LIMIT 1").bind(slug, token).first();
     perf.sessionLookupMs = Date.now() - stageStart;
     if (!session?.customer_code) return json({ error: "Customer code session not found" }, 409);
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_numbers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL, phone TEXT NOT NULL,
-      max_per_cycle INTEGER NOT NULL DEFAULT 3, sort_order INTEGER NOT NULL DEFAULT 0,
-      enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-    )`).run();
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_assignments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL,
-      wa_number_id INTEGER NOT NULL, cycle INTEGER NOT NULL, assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      UNIQUE(slug, customer_code)
-    )`).run();
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_route_state (
-      id INTEGER PRIMARY KEY CHECK(id=1), cycle INTEGER NOT NULL DEFAULT 1
-    )`).run();
+    // The table checks are idempotent and independent. Run them concurrently to
+    // avoid paying the full D1 round-trip latency three times in sequence.
+    stageStart = Date.now();
+    await Promise.all([
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_numbers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL, phone TEXT NOT NULL,
+        max_per_cycle INTEGER NOT NULL DEFAULT 3, sort_order INTEGER NOT NULL DEFAULT 0,
+        enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      )`).run(),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL,
+        wa_number_id INTEGER NOT NULL, cycle INTEGER NOT NULL, assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+        UNIQUE(slug, customer_code)
+      )`).run(),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_route_state (
+        id INTEGER PRIMARY KEY CHECK(id=1), cycle INTEGER NOT NULL DEFAULT 1
+      )`).run()
+    ]);
+    perf.schemaMs = Date.now() - stageStart;
+    stageStart = Date.now();
     await env.DB.prepare("INSERT OR IGNORE INTO wa_route_state(id,cycle) VALUES(1,1)").run();
+    perf.routeStateInitMs = Date.now() - stageStart;
     stageStart = Date.now();
     const prior = await env.DB.prepare(`SELECT a.wa_number_id,a.cycle,n.phone,n.label
       FROM wa_assignments a JOIN wa_numbers n ON n.id=a.wa_number_id
