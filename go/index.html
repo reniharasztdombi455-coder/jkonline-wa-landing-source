@@ -96,22 +96,27 @@
             .replace(/[^A-Za-z0-9_-]/g, "").slice(0,80);
         }
 
-        const assignedResponse = await fetch("/api/assign-code", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({slug,session_token:sessionToken}),
-          cache:"no-store",
-          credentials:"same-origin"
-        });
-        const assigned = await assignedResponse.json().catch(() => ({}));
+        // Load the config and create the customer code concurrently; both are independent.
+        const [assignedResult, configResult] = await Promise.all([
+          fetch("/api/assign-code", {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({slug,session_token:sessionToken}),
+            cache:"no-store",
+            credentials:"same-origin"
+          }).then(async response => ({response, data:await response.json().catch(() => ({}))})),
+          fetch("/api/public-config?slug=" + encodeURIComponent(slug), {
+            method:"GET", cache:"no-store", credentials:"same-origin"
+          }).then(async response => ({response, data:await response.json().catch(() => ({}))}))
+        ]);
+        const assignedResponse = assignedResult.response;
+        const assigned = assignedResult.data;
+        const configResponse = configResult.response;
+        const config = configResult.data;
         if (!assignedResponse.ok || !assigned.code) throw new Error(assigned.error || "Could not create the customer code.");
-
-        const configResponse = await fetch("/api/public-config?slug=" + encodeURIComponent(slug), {
-          method:"GET", cache:"no-store", credentials:"same-origin"
-        });
-        const config = await configResponse.json().catch(() => ({}));
         if (!configResponse.ok || !config.link) throw new Error(config.error || "Could not load this link.");
 
+        // Number assignment depends on the customer-code session, so it runs after assign-code.
         const routeResponse = await fetch("/api/assign-wa", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
@@ -125,16 +130,15 @@
         target = makeWhatsAppUrl(route.phone, assigned.message || config.link.message || "");
         if (!target) throw new Error("The assigned WhatsApp number is invalid.");
 
-        // Record the event before navigation. The server deduplicates by slug + customer code + event type.
-        await track("page_view", "direct");
-        let clicked = await track("whatsapp_click", "direct");
-        if (!clicked) clicked = await track("whatsapp_click", "direct");
-
         $("manual").href = target;
         $("manual").hidden = false;
-        $("detail").textContent = "If WhatsApp does not open automatically, tap the button below.";
+        $("detail").textContent = "Continuing to WhatsApp…";
 
-        // Test only: navigate to WhatsApp's official send endpoint. App-opening depends on iOS/Messenger.
+        // Start tracking without blocking navigation. keepalive lets the requests finish after page navigation.
+        void track("page_view", "direct");
+        void track("whatsapp_click", "direct");
+
+        // Navigate as soon as the required customer code and number are ready.
         location.replace(target);
       } catch (error) {
         setError(error && error.message ? error.message : "Please try again.");
