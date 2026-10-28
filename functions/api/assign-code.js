@@ -19,22 +19,26 @@ export async function onRequestPost({ request, env }) {
   const perf = { totalStart: Date.now() };
   try {
     let stageStart = Date.now();
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS landing_code_counters (
-      slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
-    )`).run();
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS customer_code_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      slug TEXT NOT NULL,
-      session_token TEXT NOT NULL,
-      customer_code TEXT NOT NULL UNIQUE,
-      source TEXT NOT NULL DEFAULT 'direct',
-      agent TEXT NOT NULL DEFAULT 'unknown',
-      first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      last_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      page_views INTEGER NOT NULL DEFAULT 0,
-      whatsapp_clicks INTEGER NOT NULL DEFAULT 0,
-      UNIQUE(slug, session_token)
-    )`).run();
+    // These idempotent schema checks are independent; run concurrently to reduce
+    // sequential D1 round-trip latency while preserving fresh-database compatibility.
+    await Promise.all([
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS landing_code_counters (
+        slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
+      )`).run(),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS customer_code_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug TEXT NOT NULL,
+        session_token TEXT NOT NULL,
+        customer_code TEXT NOT NULL UNIQUE,
+        source TEXT NOT NULL DEFAULT 'direct',
+        agent TEXT NOT NULL DEFAULT 'unknown',
+        first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+        last_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+        page_views INTEGER NOT NULL DEFAULT 0,
+        whatsapp_clicks INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(slug, session_token)
+      )`).run()
+    ]);
 
     perf.schemaMs = Date.now() - stageStart;
     stageStart = Date.now();
