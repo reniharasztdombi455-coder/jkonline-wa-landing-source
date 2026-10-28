@@ -141,7 +141,7 @@
         $("manual").addEventListener("click", async (event) => {
           event.preventDefault();
           const destination = target || $("manual").href;
-          await track("whatsapp_click", debug ? "diagnostic_button" : "manual_fallback");
+          void track("whatsapp_click", debug ? "diagnostic_button" : "manual_fallback");
           if (destination) location.href = destination;
         }, { once: true });
 
