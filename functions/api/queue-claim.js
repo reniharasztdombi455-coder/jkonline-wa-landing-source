@@ -122,6 +122,37 @@ export async function onRequestPost({ request, env, waitUntil }) {
         console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"existing"}));
         return json({ok:true,code:existing.customer_code,message,phone:existing.phone,label:existing.label,cycle:existing.cycle,queueReady:await readyCount(env.DB,slug)});
       }
+      // Legacy session created before queue rollout: keep its original customer code
+      // and allocate a phone to that code rather than consuming a different queued code.
+      const poolResult = await env.DB.prepare("SELECT id,label,phone,max_per_cycle,sort_order FROM wa_numbers WHERE enabled=1 ORDER BY sort_order,id").all();
+      const pool = poolResult.results || [];
+      const state = await env.DB.prepare("SELECT cycle FROM wa_route_state WHERE id=1").first();
+      const baseCycle = Math.max(1, Number(state?.cycle || 1));
+      let assigned = null;
+      for (let offset=0; offset<8 && !assigned; offset++) {
+        const cycle = baseCycle + offset;
+        const row = await env.DB.prepare(`
+          INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
+          SELECT ?, ?, n.id, ? FROM wa_numbers n
+          WHERE n.enabled=1 AND
+            (SELECT COUNT(*) FROM wa_assignments a WHERE a.wa_number_id=n.id AND a.cycle=?)
+            < MAX(1,COALESCE(n.max_per_cycle,1))
+          ORDER BY n.sort_order,n.id LIMIT 1
+          RETURNING wa_number_id,cycle
+        `).bind(slug,existing.customer_code,cycle,cycle).first();
+        if (row) assigned = { ...row, cycle:Number(row.cycle) };
+      }
+      if (assigned) {
+        const n = pool.find(x => Number(x.id)===Number(assigned.wa_number_id));
+        if (n) {
+          await env.DB.prepare("UPDATE wa_route_state SET cycle=MAX(cycle,?) WHERE id=1").bind(assigned.cycle).run();
+          const doRefill = () => refill(env.DB,link,prefix,3).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
+          if (typeof waitUntil === "function") waitUntil(doRefill()); else await doRefill();
+          console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"legacy-session",cycle:assigned.cycle}));
+          return json({ok:true,code:existing.customer_code,message,phone:n.phone,label:n.label,cycle:assigned.cycle,queueReady:await readyCount(env.DB,slug)});
+        }
+      }
+      return json({error:"No WhatsApp number is available for this existing session."},503);
     }
 
     // First visit can initialize an empty queue. After a successful claim, refill
