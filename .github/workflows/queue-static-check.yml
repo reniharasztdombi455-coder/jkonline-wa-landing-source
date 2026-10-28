@@ -51,3 +51,31 @@ jobs:
             if (!ok) process.exitCode = 1;
           }
           NODE
+
+  isolated-local-d1-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Wrangler for local-only D1
+        run: npm install --no-save wrangler
+      - name: Initialize isolated local database fixture
+        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.test.toml --file tests/queue-fixture.sql
+      - name: Start Pages against isolated local D1 and initialize queue tables
+        run: |
+          npx wrangler pages dev . --config wrangler.test.toml --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
+          echo $! > /tmp/pages-dev.pid
+          for i in $(seq 1 40); do
+            if curl -sS -o /dev/null http://127.0.0.1:8788/ 2>/dev/null; then break; fi
+            sleep 1
+          done
+          curl -sS -o /dev/null -X POST http://127.0.0.1:8788/api/queue-claim -H 'content-type: application/json' --data '{"slug":"queue-test","session_token":"session_test_token_0000_abcdefgh"}' || true
+      - name: Seed test numbers into local-only D1
+        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.test.toml --file tests/queue-seed-numbers.sql
+      - name: Verify idempotent and concurrent claims
+        run: node tests/queue-smoke.test.cjs
+      - name: Show local Pages logs on failure
+        if: failure()
+        run: cat /tmp/pages-dev.log || true
