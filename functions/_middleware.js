@@ -21,6 +21,29 @@ export async function onRequest(context) {
   }
   const url = new URL(context.request.url);
   if (url.pathname === "/" && (url.searchParams.has("slug") || url.searchParams.has("id"))) {
+    // Campaign URLs must be opened as a real top-level navigation. Preview
+    // fetches and automated HTTP clients commonly omit these browser navigation
+    // headers; stop them before redirecting to the side-effecting claim endpoint.
+    const mode = (context.request.headers.get("Sec-Fetch-Mode") || "").toLowerCase();
+    const dest = (context.request.headers.get("Sec-Fetch-Dest") || "").toLowerCase();
+    const user = (context.request.headers.get("Sec-Fetch-User") || "").toLowerCase();
+    const hasFetchMetadata = Boolean(mode || dest || user);
+    const isNotTopLevelNavigation =
+      (mode && mode !== "navigate") ||
+      (dest && dest !== "document") ||
+      (hasFetchMetadata && user !== "?1" && mode !== "navigate");
+    const lacksBrowserNavigationMetadata = !hasFetchMetadata;
+    if (context.request.method !== "GET" || isNotTopLevelNavigation || lacksBrowserNavigationMetadata) {
+      console.log("[wa-campaign-skip]", JSON.stringify({
+        reason: "not-top-level-browser-navigation",
+        method: context.request.method,
+        mode: mode || "missing",
+        dest: dest || "missing",
+        user: user || "missing",
+        userAgent: (context.request.headers.get("User-Agent") || "").slice(0, 120)
+      }));
+      return blockedCrawlerResponse();
+    }
     const slug = (url.searchParams.get("slug") || url.searchParams.get("id") || "").trim();
     if (!/^[A-Za-z0-9_-]{1,60}$/.test(slug)) {
       return new Response("Missing or invalid link ID.", {
