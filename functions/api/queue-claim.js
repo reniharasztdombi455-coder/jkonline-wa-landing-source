@@ -148,10 +148,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
   const timing = {};
   try {
-    let phase = Date.now();
-    await ensureSchema(env.DB);
-    timing.schemaMs = Date.now() - phase;
-    phase = Date.now();
+    // Production schema is provisioned ahead of traffic. Do not run CREATE TABLE
+    // statements in the redirect hot path: D1 DDL adds latency on every cold isolate.
+    const phase = Date.now();
     const link = await env.DB.prepare("SELECT id,slug,phone,message,source,agent,enabled FROM landing_links WHERE slug=? LIMIT 1").bind(slug).first();
     timing.linkLookupMs = Date.now() - phase;
     if (!link || !link.enabled) return json({error:"Link not found or disabled"},404);
