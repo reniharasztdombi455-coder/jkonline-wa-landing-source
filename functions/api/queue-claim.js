@@ -242,11 +242,22 @@ export async function onRequestPost({ request, env, waitUntil }) {
         continue;
       }
       if (!candidate) {
-        // This slow path is only for an empty queue; normal visitors consume
-        // the prefilled queue without waiting for number/code generation.
-        const refillPhase = Date.now();
-        await refill(env.DB,link,prefix,QUEUE_TARGET);
-        refillInlineMs += Date.now() - refillPhase;
+        // Empty-queue recovery must never build all 20 entries synchronously.
+        // Reserve only one pair for this visitor; after it is claimed, the normal
+        // waitUntil refill replenishes the remaining queue in the background.
+        const fallbackPhase = Date.now();
+        const fallbackCreated = await reserveOne(env.DB, link, prefix);
+        const fallbackMs = Date.now() - fallbackPhase;
+        console.log("[wa-queue-empty-recovery]", JSON.stringify({
+          slug, created: Boolean(fallbackCreated), elapsedMs: fallbackMs
+        }));
+        if (fallbackCreated) {
+          // The next loop iteration atomically claims the single prepared pair.
+          continue;
+        }
+
+        // Another request may have replenished the queue between our first claim
+        // attempt and fallback. Try to claim that ready pair before returning 503.
         const retry = await env.DB.prepare(`
           SELECT q.id,q.customer_code,q.wa_number_id,q.cycle,n.phone,n.label
           FROM wa_prefetch_queue q
@@ -254,20 +265,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
           WHERE q.slug=? AND q.status='ready'
           ORDER BY q.id LIMIT 1
         `).bind(slug).first();
-        if (!retry) {
-          // Another request may currently hold the refill lock while replenishing
-          // the queue. Do not immediately return 503 to concurrent real visitors:
-          // reserve one unique pair atomically as a fallback, then let the next
-          // loop iteration claim it. The code counter and assignment constraints
-          // prevent duplicate customer codes/number-cycle allocations.
-          const fallbackPhase = Date.now();
-          const fallbackCreated = await reserveOne(env.DB, link, prefix);
-          console.log("[wa-queue-concurrent-fallback]", JSON.stringify({
-            slug, created: Boolean(fallbackCreated), elapsedMs: Date.now() - fallbackPhase
-          }));
-          if (fallbackCreated) continue;
-          break;
-        }
+        if (!retry) break;
         const row = await env.DB.prepare(`UPDATE wa_prefetch_queue
           SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
           WHERE id=? AND status='ready'
