@@ -1,3 +1,5 @@
+import { onRequestGet as whatsappGo } from "./api/whatsapp-go.js";
+
 // Keep campaign URLs as direct server-side WhatsApp redirects; block link-preview crawlers before any side effects.
 function isCrawlerRequest(request) {
   const ua = (request.headers.get("User-Agent") || "").toLowerCase();
@@ -51,13 +53,10 @@ export async function onRequest(context) {
         headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
       });
     }
-    const target = new URL("/api/whatsapp-go", url.origin);
-    target.searchParams.set("slug", slug);
-    for (const key of ["src", "campaign", "ad"]) {
-      const value = url.searchParams.get(key);
-      if (value) target.searchParams.set(key, value.slice(0, 120));
-    }
-    return Response.redirect(target.toString(), 302);
+    // Run the existing WhatsApp allocation/redirect handler in this request,
+    // avoiding an extra browser-facing 302 through /api/whatsapp-go.
+    // Keep the crawler and top-level-navigation checks above this call.
+    return whatsappGo(context);
   }
   return context.next();
 }
