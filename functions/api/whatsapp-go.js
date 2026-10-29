@@ -88,11 +88,10 @@ export async function onRequestGet({ request, env, waitUntil }) {
     return unavailable("WhatsApp is temporarily unavailable. Please try again later.");
   }
 
-  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(request.headers.get("User-Agent") || "");
-  const target = isMobile
-    ? new URL("https://wa.me/" + digits)
-    : new URL("https://web.whatsapp.com/send");
-  if (!isMobile) target.searchParams.set("phone", digits);
+  // Use WhatsApp's universal short link on every device. It lets the device
+  // choose the installed app or the appropriate web experience, instead of
+  // forcing desktop-class/in-app browsers directly to web.whatsapp.com.
+  const target = new URL("https://wa.me/" + digits);
   target.searchParams.set("text", String(claim.message).slice(0, 800));
 
   const trackRequest = new Request(new URL("/api/track", incoming.origin), {
