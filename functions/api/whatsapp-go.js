@@ -23,9 +23,26 @@ export async function onRequestGet({ request, env, waitUntil }) {
     return new Response("Missing or invalid link ID.", { status:400, headers:{"Cache-Control":"no-store"} });
   }
 
-  // Each direct campaign click gets its own session token. The queue already
-  // contains prepared code/number pairs, so this endpoint claims one and returns
-  // a server-side 302 instead of rendering a waiting landing page.
+  // Speculative browser requests must never consume a prepared customer/number
+  // pair. Return a non-cacheable empty response so an actual user navigation
+  // makes a fresh request and performs the claim.
+  const secPurpose = (request.headers.get("Sec-Purpose") || "").toLowerCase();
+  const purpose = (request.headers.get("Purpose") || "").toLowerCase();
+  if (/(^|[;,\\s])prefetch([;,\\s]|$)|prerender/.test(secPurpose) || purpose.includes("prefetch")) {
+    console.log("[wa-queue-skip]", JSON.stringify({ slug, reason:"speculative-request", secPurpose:secPurpose.slice(0,80) }));
+    return new Response(null, {
+      status:204,
+      headers:{
+        "Cache-Control":"no-store, no-cache, must-revalidate",
+        "Pragma":"no-cache",
+        "Vary":"Sec-Purpose, Purpose"
+      }
+    });
+  }
+
+  // Each real direct campaign click gets its own session token. The queue
+  // already contains prepared code/number pairs, so claim one and return a
+  // server-side 302 instead of rendering a waiting landing page.
   const sessionToken = crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
   const claimRequest = new Request(new URL("/api/queue-claim", incoming.origin), {
     method:"POST",
@@ -48,7 +65,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
     return fallbackPage(slug, claim?.error || "No prepared WhatsApp contact is available right now. Please use the fallback button.");
   }
 
-  const digits = String(claim.phone).replace(/\D/g, "");
+  const digits = String(claim.phone).replace(/\\D/g, "");
   if (digits.length < 8 || digits.length > 15) {
     return fallbackPage(slug, "The assigned WhatsApp number is invalid. Please use the fallback button.");
   }
