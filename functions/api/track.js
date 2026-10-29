@@ -16,7 +16,7 @@ export async function onRequestPost({ request, env }) {
 
   const eventType = clean(body.event_type, 30);
 
-  if (!["page_view", "whatsapp_click"].includes(eventType)) {
+  if (!["page_view", "whatsapp_click", "whatsapp_open_attempt"].includes(eventType)) {
     return Response.json({ error: "Invalid event type" }, { status: 400 });
   }
 
@@ -76,10 +76,12 @@ export async function onRequestPost({ request, env }) {
     }
 
     if (sessionToken && countEvent) {
-      const column = eventType === "page_view" ? "page_views" : "whatsapp_clicks";
-      await env.DB.prepare(
-        "UPDATE customer_code_sessions SET " + column + " = " + column + " + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?"
-      ).bind(slug, sessionToken).run().catch(() => {});
+      const column = eventType === "page_view" ? "page_views" : (eventType === "whatsapp_click" ? "whatsapp_clicks" : null);
+      if (column) {
+        await env.DB.prepare(
+          "UPDATE customer_code_sessions SET " + column + " = " + column + " + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?"
+        ).bind(slug, sessionToken).run().catch(() => {});
+      }
     }
 
     if (countEvent) await env.DB.prepare(

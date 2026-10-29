@@ -1,0 +1,106 @@
+name: Queue feature static checks
+
+on:
+  push:
+    branches:
+      - feature/wa-prefetch-queue
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  syntax-and-invariants:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check Cloudflare function syntax
+        run: |
+          set -euo pipefail
+          for file in functions/api/queue-claim.js functions/api/assign-wa.js functions/api/track.js; do
+            node --input-type=module --check < "$file"
+          done
+      - name: Check landing page JavaScript syntax
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const html = fs.readFileSync("go/index.html", "utf8");
+          const start = html.indexOf("<script>");
+          const end = html.indexOf("</script>", start);
+          if (start < 0 || end < 0) throw new Error("No inline script found");
+          new Function(html.slice(start + 8, end));
+          NODE
+      - name: Verify queue integration and analytics semantics
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const api = fs.readFileSync("functions/api/queue-claim.js", "utf8");
+          const page = fs.readFileSync("go/index.html", "utf8");
+          const track = fs.readFileSync("functions/api/track.js", "utf8");
+          const checks = [
+            ["queue refill lock exists", api.includes("wa_queue_refill_locks")],
+            ["claim uses compare-and-set", api.includes("WHERE id=? AND status='ready'")],
+            ["landing page uses queue API", page.includes("/api/queue-claim")],
+            ["open attempt has dedicated event", track.includes("whatsapp_open_attempt")],
+            ["old automatic click event removed", !page.includes('void track("whatsapp_click", "direct")')]
+          ];
+          for (const [name, ok] of checks) {
+            console.log((ok ? "PASS " : "FAIL ") + name);
+            if (!ok) process.exitCode = 1;
+          }
+          NODE
+
+  isolated-local-d1-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Wrangler for local-only D1
+        run: npm install --no-save wrangler
+      - name: Create standard-path isolated test config
+        run: |
+          cat > wrangler.jsonc <<'JSON'
+          {
+            "name": "jkonline-wa-landing-local-tests",
+            "pages_build_output_dir": "./",
+            "compatibility_date": "2026-10-27",
+            "d1_databases": [{"binding":"DB","database_name":"jkonline-wa-local-test-only","database_id":"00000000-0000-0000-0000-000000000001"}]
+          }
+          JSON
+      - name: Initialize isolated local database fixture
+        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/queue-fixture.sql
+      - name: Start Pages against isolated local D1 and initialize queue tables
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
+          echo $! > /tmp/pages-dev.pid
+          ready=0
+          for i in $(seq 1 40); do
+            if curl --max-time 3 -sS -o /tmp/first-claim.json -w '%{http_code}' http://127.0.0.1:8788/api/queue-claim -X POST -H 'content-type: application/json' --data '{"slug":"queue-test","session_token":"session_test_token_0000_abcdefgh"}' > /tmp/first-claim-status 2>/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" != 1 ]; then cat /tmp/pages-dev.log; exit 1; fi
+          # No phone rows exist yet; 503 is expected and confirms schema initialization.
+          if [ "$(cat /tmp/first-claim-status)" != "503" ]; then cat /tmp/first-claim.json; cat /tmp/pages-dev.log; exit 1; fi
+      - name: Seed test numbers into local-only D1
+        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/queue-seed-numbers.sql
+      - name: Verify idempotent and concurrent claims
+        run: node tests/queue-smoke.test.cjs
+      - name: Verify queue refills to five ready pairs
+        run: |
+          result=$(npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --command "SELECT COUNT(*) AS ready_count FROM wa_prefetch_queue WHERE slug='queue-test' AND status='ready';")
+          echo "$result"
+          echo "$result" | grep -Eq '"ready_count"[[:space:]]*:[[:space:]]*5'
+      - name: Verify WhatsApp per-cycle capacity is never exceeded
+        run: |
+          result=$(npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --command "SELECT COUNT(*) AS violations FROM (SELECT a.wa_number_id,a.cycle,COUNT(*) AS assigned,n.max_per_cycle FROM wa_assignments a JOIN wa_numbers n ON n.id=a.wa_number_id GROUP BY a.wa_number_id,a.cycle HAVING COUNT(*) > MAX(1,n.max_per_cycle));")
+          echo "$result"
+          echo "$result" | grep -Eq '"violations"[[:space:]]*:[[:space:]]*0'
+      - name: Verify analytics event semantics and deduplication
+        run: node tests/analytics-smoke.test.cjs
+      - name: Show local Pages logs on failure
+        if: failure()
+        run: cat /tmp/pages-dev.log || true
