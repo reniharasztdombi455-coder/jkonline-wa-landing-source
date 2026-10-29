@@ -230,8 +230,13 @@ export async function onRequestPost({ request, env, waitUntil }) {
           (SELECT label FROM wa_numbers WHERE id=wa_prefetch_queue.wa_number_id) AS label
       `).bind(token,slug).first();
       claimQueryMs += Date.now() - claimPhase;
+      if (candidate) {
+        claimed=candidate;
+        phone=candidate.phone;
+        label=candidate.label;
+        continue;
+      }
       if (!candidate) {
-        claimQueryMs += Date.now() - claimPhase;
         // This slow path is only for an empty queue; normal visitors consume
         // the prefilled queue without waiting for number/code generation.
         const refillPhase = Date.now();
@@ -266,12 +271,6 @@ export async function onRequestPost({ request, env, waitUntil }) {
         if (row) { claimed=row; phone=retry.phone; label=retry.label; }
         continue;
       }
-      const row = await env.DB.prepare(`UPDATE wa_prefetch_queue
-        SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-        WHERE id=? AND status='ready'
-        RETURNING id,customer_code,wa_number_id,cycle`).bind(token,candidate.id).first();
-      claimQueryMs += Date.now() - claimPhase;
-      if (row) { claimed=row; phone=candidate.phone; label=candidate.label; }
     }
     timing.claimQueryMs = claimQueryMs;
     timing.refillInlineMs = refillInlineMs;
