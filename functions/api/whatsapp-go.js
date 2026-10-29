@@ -30,6 +30,10 @@ function readCookie(request, name) {
 }
 
 export async function onRequestGet({ request, env, waitUntil }) {
+  const userAgent = (request.headers.get("User-Agent") || "").toLowerCase();
+  if (userAgent.includes("meta-externalads/") || userAgent.includes("meta-externalagent/")) {
+    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Robots-Tag": "noindex, nofollow" } });
+  }
   const incoming = new URL(request.url);
   const slug = clean(incoming.searchParams.get("slug") || incoming.searchParams.get("id"), 60);
   if (!/^[A-Za-z0-9_-]{1,60}$/.test(slug)) {
