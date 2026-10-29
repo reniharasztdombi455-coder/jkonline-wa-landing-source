@@ -331,21 +331,26 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     if (!phone) return json({error:"预备号码不存在或已停用，请联系管理员。"},500);
 
-    // Count a link click as soon as a new customer code + WhatsApp number pair
-    // has been successfully assigned. The unique key prevents double-counting
-    // if whatsapp-go's legacy tracking request arrives afterward.
-    try {
-      const clickEvent = await env.DB.prepare(
-        "INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')"
-      ).bind(slug, claimed.customer_code).run();
-      if (Number(clickEvent.meta?.changes || 0) > 0) {
-        await env.DB.prepare(
-          "UPDATE customer_code_sessions SET whatsapp_clicks = whatsapp_clicks + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?"
-        ).bind(slug, token).run();
+    // Analytics are not required to create a correct assignment or redirect.
+    // Schedule them after the response on Cloudflare; preserve synchronous
+    // behavior only in runtimes that do not provide waitUntil.
+    const recordClick = async () => {
+      try {
+        // The unique key prevents double-counting for the same code and event.
+        const clickEvent = await env.DB.prepare(
+          "INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')"
+        ).bind(slug, claimed.customer_code).run();
+        if (Number(clickEvent.meta?.changes || 0) > 0) {
+          await env.DB.prepare(
+            "UPDATE customer_code_sessions SET whatsapp_clicks = whatsapp_clicks + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?"
+          ).bind(slug, token).run();
+        }
+      } catch (error) {
+        console.log("[wa-click-count-error]", String(error?.message || error).slice(0,160));
       }
-    } catch (error) {
-      console.log("[wa-click-count-error]", String(error?.message || error).slice(0,160));
-    }
+    };
+    if (typeof waitUntil === "function") waitUntil(recordClick());
+    else await recordClick();
 
     const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
     if (typeof waitUntil === "function") waitUntil(doRefill());
