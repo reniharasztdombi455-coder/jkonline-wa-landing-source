@@ -110,11 +110,14 @@ export async function onRequestGet({ request, env, waitUntil }) {
 
   console.log("[wa-timing] whatsapp-go-total", JSON.stringify({ totalMs:Date.now()-claimStarted, outcome:"redirect-302" }));
   console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, redirect:"302" }));
-  const response = Response.redirect(target.toString(), 302);
-  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
-  response.headers.set("Pragma", "no-cache");
+  // Construct a fresh response so headers remain mutable in Cloudflare Workers.
+  const headers = new Headers({
+    "Location": target.toString(),
+    "Cache-Control": "no-store, no-cache, must-revalidate",
+    "Pragma": "no-cache"
+  });
   if (!existingToken) {
-    response.headers.append("Set-Cookie", cookieName + "=" + sessionToken + "; Path=/api/whatsapp-go; Max-Age=15552000; HttpOnly; Secure; SameSite=Lax");
+    headers.set("Set-Cookie", cookieName + "=" + sessionToken + "; Path=/api/whatsapp-go; Max-Age=15552000; HttpOnly; Secure; SameSite=Lax");
   }
-  return response;
+  return new Response(null, { status: 302, headers });
 }
