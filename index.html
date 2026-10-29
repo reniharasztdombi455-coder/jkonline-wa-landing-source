@@ -518,12 +518,16 @@
           $("primary-button").href = target;
           $("primary-button").hidden = false;
 
-          $("primary-button").addEventListener("click", async (event) => {
-            event.preventDefault();
+          let routing = false;
+          let autoRedirectAttempted = false;
+
+          async function routeToWhatsApp(buttonType) {
+            if (routing) return;
+            routing = true;
             const button = $("primary-button");
-            if (button.dataset.routing === "1") return;
-            button.dataset.routing = "1";
             button.style.opacity = ".65";
+            setStatus("");
+
             try {
               const routeResponse = await fetch("/api/assign-wa", {
                 method: "POST",
@@ -534,24 +538,39 @@
               });
               const route = await routeResponse.json().catch(() => ({}));
               if (!routeResponse.ok || !route.phone) {
-                throw new Error(route.error || "Unable to connect to WhatsApp. Please try again.");
+                throw new Error(route.error || "Unable to connect to WhatsApp. Please use the button to try again.");
               }
               const target = whatsappUrl(route.phone, message);
               if (!target) throw new Error("The assigned WhatsApp number is invalid.");
 
-              // 服务端按 slug + customer_code + event_type 去重。
-              // 不再使用“每条链接一个本地标记”，避免同一设备上的不同客户互相漏计。
-              // 等待统计接口确认；若请求失败，重试一次。统计失败也不能阻止客户打开 WhatsApp。
-              let tracked = await track("whatsapp_click", "primary");
-              if (!tracked) tracked = await track("whatsapp_click", "primary");
+              // Analytics must never block navigation.
+              let tracked = await track("whatsapp_click", buttonType);
+              if (!tracked) await track("whatsapp_click", buttonType);
 
-              window.location.href = target;
+              // Navigate in the current tab. Avoid window.open(), which is
+              // commonly blocked when called after asynchronous work in webviews.
+              window.location.assign(target);
             } catch (error) {
-              setStatus(error.message || "Unable to connect to WhatsApp. Please try again.");
-              button.dataset.routing = "";
+              routing = false;
               button.style.opacity = "";
+              setStatus(error.message || "Unable to connect to WhatsApp. Please tap the button to try again.");
             }
+          }
+
+          $("primary-button").addEventListener("click", (event) => {
+            event.preventDefault();
+            routeToWhatsApp("primary");
           });
+
+          // Try an automatic same-tab redirect once the page has loaded its
+          // customer code and configuration. Some in-app browsers restrict
+          // automatic external-app handoff; the visible button remains as a
+          // user-initiated fallback if the redirect is blocked or fails.
+          window.setTimeout(() => {
+            if (autoRedirectAttempted || routing) return;
+            autoRedirectAttempted = true;
+            routeToWhatsApp("auto");
+          }, 1200);
 
           document.title = "Click to Open WhatsApp";
           setStatus("");
