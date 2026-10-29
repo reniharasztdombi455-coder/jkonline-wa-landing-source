@@ -555,12 +555,14 @@
               const target = whatsappUrl(route.phone, message);
               if (!target) throw new Error("The assigned WhatsApp number is invalid.");
 
-              // Analytics must never block navigation.
-              let tracked = await track("whatsapp_click", buttonType);
-              if (!tracked) await track("whatsapp_click", buttonType);
+              // Do not wait for analytics before navigating. A slow or stalled
+              // tracking request must never leave the visitor stranded on this page.
+              // track() uses keepalive:true so the browser can finish the request
+              // while navigating away.
+              void track("whatsapp_click", buttonType);
 
-              // Navigate in the current tab. Avoid window.open(), which is
-              // commonly blocked when called after asynchronous work in webviews.
+              // Navigate in the current tab to WhatsApp Web on desktop or wa.me
+              // on mobile. This is a normal top-level navigation, not a popup.
               window.location.assign(target);
             } catch (error) {
               routing = false;
