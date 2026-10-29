@@ -88,11 +88,15 @@ export async function onRequestGet({ request, env, waitUntil }) {
     return unavailable("WhatsApp is temporarily unavailable. Please try again later.");
   }
 
-  // Use WhatsApp's universal short link on every device. It lets the device
-  // choose the installed app or the appropriate web experience, instead of
-  // forcing desktop-class/in-app browsers directly to web.whatsapp.com.
+  // Keep the universal wa.me link as the safe default. On iOS in-app browsers,
+  // first try the installed WhatsApp app's URL scheme to avoid the slower
+  // universal-link handoff; if the app does not open, fall back to wa.me.
   const target = new URL("https://wa.me/" + digits);
   target.searchParams.set("text", String(claim.message).slice(0, 800));
+  const isIOS = /iPhone|iPad|iPod/i.test(request.headers.get("User-Agent") || "");
+  const appTarget = new URL("whatsapp://send");
+  appTarget.searchParams.set("phone", digits);
+  appTarget.searchParams.set("text", String(claim.message).slice(0, 800));
 
   const trackRequest = new Request(new URL("/api/track", incoming.origin), {
     method:"POST",
@@ -115,12 +119,25 @@ export async function onRequestGet({ request, env, waitUntil }) {
   console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, redirect:"302" }));
   // Construct a fresh response so headers remain mutable in Cloudflare Workers.
   const headers = new Headers({
-    "Location": target.toString(),
     "Cache-Control": "no-store, no-cache, must-revalidate",
     "Pragma": "no-cache"
   });
   if (!existingToken) {
     headers.set("Set-Cookie", cookieName + "=" + sessionToken + "; Path=/; Max-Age=15552000; HttpOnly; Secure; SameSite=Lax");
   }
+
+  if (isIOS) {
+    // This page is served only after the server has successfully claimed/reused
+    // the assignment. The fallback points directly to wa.me and does not call
+    // this worker again, so it cannot allocate a second customer code.
+    const appHref = appTarget.toString().replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const webHref = target.toString().replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Opening WhatsApp</title></head><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:48px 20px;color:#222"><p>Opening WhatsApp…</p><p><a href="${webHref}" style="display:inline-block;padding:12px 20px;background:#128c7e;color:#fff;border-radius:8px;text-decoration:none">Continue to WhatsApp</a></p><script>let left=false;const mark=()=>{left=true};window.addEventListener('pagehide',mark);document.addEventListener('visibilitychange',()=>{if(document.hidden)mark()});location.href="${appHref}";setTimeout(()=>{if(!left&&!document.hidden)location.href="${webHref}"},1200)</script></body></html>`;
+    headers.set("Content-Type", "text/html; charset=utf-8");
+    headers.set("X-Content-Type-Options", "nosniff");
+    return new Response(html, { status: 200, headers });
+  }
+
+  headers.set("Location", target.toString());
   return new Response(null, { status: 302, headers });
 }
