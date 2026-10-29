@@ -9,7 +9,7 @@ const schema = [
   `CREATE TABLE IF NOT EXISTS landing_code_counters (
     slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
   )`,
-  `CREATE TABLE IF NOT EXISTS customer_code_sessions (
+  `CREATE TABLE IF NOT EXISTS unique_customer_events (\n    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL,\n    event_type TEXT NOT NULL, first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n    UNIQUE(slug, customer_code, event_type)\n  )`,\n  `CREATE TABLE IF NOT EXISTS customer_code_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, session_token TEXT NOT NULL,
     customer_code TEXT NOT NULL UNIQUE, source TEXT NOT NULL DEFAULT 'direct',
     agent TEXT NOT NULL DEFAULT 'unknown',
@@ -322,6 +322,17 @@ export async function onRequestPost({ request, env, waitUntil }) {
     }
 
     if (!phone) return json({error:"预备号码不存在或已停用，请联系管理员。"},500);
+
+    // Count a link click as soon as a new customer code + WhatsApp number pair
+    // has been successfully assigned. The unique key prevents double-counting
+    // if whatsapp-go's legacy tracking request arrives afterward.
+    try {
+      await env.DB.prepare(
+        "INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')"
+      ).bind(slug, claimed.customer_code).run();
+    } catch (error) {
+      console.log("[wa-click-count-error]", String(error?.message || error).slice(0,160));
+    }
 
     const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
     if (typeof waitUntil === "function") waitUntil(doRefill());
