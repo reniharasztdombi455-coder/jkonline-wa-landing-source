@@ -120,7 +120,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
     "Pragma": "no-cache"
   });
   if (!existingToken) {
-    headers.set("Set-Cookie", cookieName + "=" + sessionToken + "; Path=/api/whatsapp-go; Max-Age=15552000; HttpOnly; Secure; SameSite=Lax");
+    headers.set("Set-Cookie", cookieName + "=" + sessionToken + "; Path=/; Max-Age=15552000; HttpOnly; Secure; SameSite=Lax");
   }
   return new Response(null, { status: 302, headers });
 }
