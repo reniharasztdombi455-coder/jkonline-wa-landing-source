@@ -1,15 +1,23 @@
-// Keep existing campaign links working while removing the visible landing page.
-// A URL such as /?slug=1 is routed straight to the server-side WhatsApp redirect.
-// Other requests, including the admin APIs and static assets, continue normally.
+// Keep campaign URLs as direct server-side WhatsApp redirects; block link-preview crawlers before any side effects.
+function isCrawlerRequest(request) {
+  const ua = (request.headers.get("User-Agent") || "").toLowerCase();
+  return /meta-externalads|meta-externalagent|facebookexternalhit|facebot|facebookcatalog|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|googlebot|bingbot|applebot|yandexbot|baiduspider|crawler|spider|previewbot|pinterestbot|embedly|quora link preview/.test(ua);
+}
+
+function blockedCrawlerResponse() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Pragma": "no-cache",
+      "X-Robots-Tag": "noindex, nofollow"
+    }
+  });
+}
+
 export async function onRequest(context) {
-  // Meta ad crawlers may fetch campaign URLs automatically. Never let crawler
-  // requests trigger customer-code claims or WhatsApp-number assignment.
-  const userAgent = (context.request.headers.get("User-Agent") || "").toLowerCase();
-  if (userAgent.includes("meta-externalads/") || userAgent.includes("meta-externalagent/")) {
-    return new Response(null, {
-      status: 204,
-      headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Robots-Tag": "noindex, nofollow" }
-    });
+  if (context.request.method === "HEAD" || isCrawlerRequest(context.request)) {
+    return blockedCrawlerResponse();
   }
   const url = new URL(context.request.url);
   if (url.pathname === "/" && (url.searchParams.has("slug") || url.searchParams.has("id"))) {
