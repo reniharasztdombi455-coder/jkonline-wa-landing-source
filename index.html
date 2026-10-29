@@ -400,7 +400,19 @@
           return "";
         }
 
-        const url = new URL("https://wa.me/" + digits);
+        // Desktop browsers should go straight to WhatsApp Web rather than
+        // api.whatsapp.com, which commonly triggers a native-app confirmation.
+        // Mobile browsers use wa.me so the installed WhatsApp app can be offered.
+        const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        const url = isMobile
+          ? new URL("https://wa.me/" + digits)
+          : new URL("https://web.whatsapp.com/send");
+
+        if (isMobile) {
+          // wa.me phone is part of the path.
+        } else {
+          url.searchParams.set("phone", digits);
+        }
 
         if (message) {
           url.searchParams.set("text", message);
