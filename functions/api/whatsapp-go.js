@@ -5,15 +5,28 @@ function clean(value, max = 80) {
   return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, max);
 }
 
-function fallbackPage(slug, message) {
-  const safeSlug = encodeURIComponent(slug);
-  const safeMessage = String(message || "We couldn't prepare WhatsApp automatically. Please continue using the button.")
-    .replace(/[&<>"]/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[ch]));
-  const href = "/?slug=" + safeSlug;
-  return new Response(
-    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Continue to WhatsApp</title><body style="font-family:Arial,sans-serif;max-width:460px;margin:12vh auto;padding:24px;text-align:center"><h2>Continue to WhatsApp</h2><p>${safeMessage}</p><a style="display:inline-block;padding:14px 24px;border-radius:999px;background:#111;color:#fff;text-decoration:none;font-weight:bold" href="${href}">Open WhatsApp page</a></body></html>`,
-    { status: 503, headers: { "Content-Type":"text/html; charset=utf-8", "Cache-Control":"no-store" } }
-  );
+function unavailable(message, status = 503) {
+  return new Response(String(message || "WhatsApp is temporarily unavailable. Please try again later.").slice(0, 240), {
+    status,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Pragma": "no-cache"
+    }
+  });
+}
+
+function readCookie(request, name) {
+  const header = request.headers.get("Cookie") || "";
+  for (const part of header.split(";")) {
+    const index = part.indexOf("=");
+    if (index < 0) continue;
+    if (part.slice(0, index).trim() === name) {
+      const value = part.slice(index + 1).trim();
+      return /^[A-Za-z0-9_-]{20,80}$/.test(value) ? value : "";
+    }
+  }
+  return "";
 }
 
 export async function onRequestGet({ request, env, waitUntil }) {
@@ -40,10 +53,11 @@ export async function onRequestGet({ request, env, waitUntil }) {
     });
   }
 
-  // Each real direct campaign click gets its own session token. The queue
-  // already contains prepared code/number pairs, so claim one and return a
-  // server-side 302 instead of rendering a waiting landing page.
-  const sessionToken = crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+  // Reuse a per-link browser session cookie so repeat visits can keep the same
+  // customer code and WhatsApp assignment. A new browser/session gets a new code.
+  const cookieName = "wa_session_" + slug;
+  const existingToken = readCookie(request, cookieName);
+  const sessionToken = existingToken || crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
   const claimRequest = new Request(new URL("/api/queue-claim", incoming.origin), {
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -58,16 +72,16 @@ export async function onRequestGet({ request, env, waitUntil }) {
     claim = await claimResponse.json();
     console.log("[wa-timing] whatsapp-go-claim", JSON.stringify({ claimMs:Date.now()-claimStarted, claimStatus:claimResponse.status }));
   } catch {
-    return fallbackPage(slug, "We couldn't prepare your WhatsApp contact automatically. Please use the fallback button.");
+    return unavailable("WhatsApp is temporarily unavailable. Please try again later.");
   }
 
   if (!claimResponse.ok || !claim?.ok || !claim.phone || !claim.message) {
-    return fallbackPage(slug, claim?.error || "No prepared WhatsApp contact is available right now. Please use the fallback button.");
+    return unavailable("WhatsApp is temporarily unavailable. Please try again later.");
   }
 
   const digits = String(claim.phone).replace(/\D/g, "");
   if (digits.length < 8 || digits.length > 15) {
-    return fallbackPage(slug, "The assigned WhatsApp number is invalid. Please use the fallback button.");
+    return unavailable("WhatsApp is temporarily unavailable. Please try again later.");
   }
 
   const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(request.headers.get("User-Agent") || "");
@@ -96,5 +110,11 @@ export async function onRequestGet({ request, env, waitUntil }) {
 
   console.log("[wa-timing] whatsapp-go-total", JSON.stringify({ totalMs:Date.now()-claimStarted, outcome:"redirect-302" }));
   console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, redirect:"302" }));
-  return Response.redirect(target.toString(), 302);
+  const response = Response.redirect(target.toString(), 302);
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  response.headers.set("Pragma", "no-cache");
+  if (!existingToken) {
+    response.headers.append("Set-Cookie", cookieName + "=" + sessionToken + "; Path=/api/whatsapp-go; Max-Age=15552000; HttpOnly; Secure; SameSite=Lax");
+  }
+  return response;
 }
