@@ -83,7 +83,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
     body:JSON.stringify({
       slug,
       session_token:sessionToken,
-      event_type:"whatsapp_open_attempt",
+      event_type:"whatsapp_click",
       button_type:"server_redirect",
       page_path:"/api/whatsapp-go",
       referrer_host:(() => { try { return incoming.searchParams.get("src") || new URL(request.headers.get("Referer") || "").hostname; } catch { return ""; } })()
