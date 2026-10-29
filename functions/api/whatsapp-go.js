@@ -88,15 +88,12 @@ export async function onRequestGet({ request, env, waitUntil }) {
     return unavailable("WhatsApp is temporarily unavailable. Please try again later.");
   }
 
-  // Keep the universal wa.me link as the safe default. On iOS in-app browsers,
-  // first try the installed WhatsApp app's URL scheme to avoid the slower
-  // universal-link handoff; if the app does not open, fall back to wa.me.
+  // Use the direct WhatsApp universal link on iOS as well. The custom
+  // whatsapp:// interstitial increased observed end-to-end time in testing.
+  // Keep the prefilled message and avoid a second client-side redirect.
   const target = new URL("https://wa.me/" + digits);
   target.searchParams.set("text", String(claim.message).slice(0, 800));
   const isIOS = /iPhone|iPad|iPod/i.test(request.headers.get("User-Agent") || "");
-  const appTarget = new URL("whatsapp://send");
-  appTarget.searchParams.set("phone", digits);
-  appTarget.searchParams.set("text", String(claim.message).slice(0, 800));
 
   const trackRequest = new Request(new URL("/api/track", incoming.origin), {
     method:"POST",
@@ -115,8 +112,8 @@ export async function onRequestGet({ request, env, waitUntil }) {
   });
   if (typeof waitUntil === "function") waitUntil(tracking);
 
-  console.log("[wa-timing] whatsapp-go-total", JSON.stringify({ totalMs:Date.now()-claimStarted, outcome:isIOS ? "ios-app-handoff-page" : "redirect-302" }));
-  console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, response:isIOS ? "200-ios-app-handoff-page" : "302-redirect" }));
+  console.log("[wa-timing] whatsapp-go-total", JSON.stringify({ totalMs:Date.now()-claimStarted, outcome:"redirect-302" }));
+  console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, response:"302-redirect" }));
   // Construct a fresh response so headers remain mutable in Cloudflare Workers.
   const headers = new Headers({
     "Cache-Control": "no-store, no-cache, must-revalidate",
@@ -126,24 +123,5 @@ export async function onRequestGet({ request, env, waitUntil }) {
     headers.set("Set-Cookie", cookieName + "=" + sessionToken + "; Path=/; Max-Age=15552000; HttpOnly; Secure; SameSite=Lax");
   }
 
-  if (isIOS) {
-    // This page is served only after the server has successfully claimed/reused
-    // the assignment. The fallback points directly to wa.me and does not call
-    // this worker again, so it cannot allocate a second customer code.
-    const escapeAttr = value => String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const appUrl = appTarget.toString();
-    const webUrl = target.toString();
-    const webHref = escapeAttr(webUrl);
-    // JSON.stringify safely quotes URL strings for JavaScript; HTML entities
-    // must only be used in HTML attributes, not inside JavaScript string values.
-    const appJs = JSON.stringify(appUrl);
-    const webJs = JSON.stringify(webUrl);
-    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Opening WhatsApp</title></head><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;text-align:center;padding:48px 20px;color:#222"><p>Opening WhatsApp…</p><p><a href="${webHref}" style="display:inline-block;padding:12px 20px;background:#128c7e;color:#fff;border-radius:8px;text-decoration:none">Continue to WhatsApp</a></p><script>let left=false;const mark=()=>{left=true};window.addEventListener('pagehide',mark);document.addEventListener('visibilitychange',()=>{if(document.hidden)mark()});location.href=${appJs};setTimeout(()=>{if(!left&&!document.hidden)location.href=${webJs}},1200)</script></body></html>`;
-    headers.set("Content-Type", "text/html; charset=utf-8");
-    headers.set("X-Content-Type-Options", "nosniff");
-    return new Response(html, { status: 200, headers });
-  }
-
   headers.set("Location", target.toString());
   return new Response(null, { status: 302, headers });
-}
