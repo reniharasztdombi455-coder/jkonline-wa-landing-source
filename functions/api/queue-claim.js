@@ -143,6 +143,10 @@ async function refill(DB, link, prefix, target = QUEUE_TARGET) {
 }
 
 export async function onRequestPost({ request, env, waitUntil }) {
+  const userAgent = (request.headers.get("User-Agent") || "").toLowerCase();
+  if (userAgent.includes("meta-externalads/") || userAgent.includes("meta-externalagent/")) {
+    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Robots-Tag": "noindex, nofollow" } });
+  }
   const started = Date.now();
   let body;
   try { body = await request.json(); } catch { return json({ error:"Invalid JSON" },400); }
