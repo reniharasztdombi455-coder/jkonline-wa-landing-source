@@ -187,7 +187,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     timing.linkLookupMs = Date.now() - phase;
     if (!link || !link.enabled) return json({error:"Link not found or disabled"},404);
     slug = String(link.slug || "");
-    const pattern = /([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\\/-\\d+/;
+    const pattern = /([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\/-\d+/;
     const match = String(link.message || "").match(pattern);
     if (!match) return json({error:"后台预设消息中需要包含基础客户编号，例如 F-HT-1027/-1。"},400);
     const prefix = match[1];
@@ -199,7 +199,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
       label:link.existing_label,
       cycle:link.existing_cycle
     } : null;
-    if (existing?.customer_code) {      if (existing.phone) {
+    if (existing?.customer_code) {
+      const message = String(link.message || "").replace(pattern,existing.customer_code);
+      if (existing.phone) {
         console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"existing"}));
         return json({ok:true,code:existing.customer_code,message,phone:existing.phone,label:existing.label,cycle:existing.cycle});
       }
