@@ -88,10 +88,10 @@ export async function onRequestGet({ request, env, waitUntil }) {
     return unavailable("WhatsApp is temporarily unavailable. Please try again later.");
   }
 
-  // Use the direct WhatsApp universal link on iOS as well. The custom
-  // whatsapp:// interstitial increased observed end-to-end time in testing.
-  // Keep the prefilled message and avoid a second client-side redirect.
-  const target = new URL("https://wa.me/" + digits);
+  // Test skipping the wa.me redirect and go directly to the WhatsApp send endpoint.
+  // Keep the prefilled message; all queue/session/tracking logic remains unchanged.
+  const target = new URL("https://api.whatsapp.com/send");
+  target.searchParams.set("phone", digits);
   target.searchParams.set("text", String(claim.message).slice(0, 800));
   const trackRequest = new Request(new URL("/api/track", incoming.origin), {
     method:"POST",
