@@ -513,7 +513,6 @@
           void track("page_view");
 
           let routing = false;
-          let autoRedirectAttempted = false;
 
           async function routeToWhatsApp(buttonType) {
             if (routing) return;
@@ -534,14 +533,8 @@
             routeToWhatsApp("primary");
           });
 
-          // Do not add an artificial delay after the prepared pair is claimed.
-          // Give the browser one event-loop turn to paint the fallback button,
-          // then navigate immediately. Replenishment runs server-side in background.
-          window.setTimeout(() => {
-            if (autoRedirectAttempted || routing) return;
-            autoRedirectAttempted = true;
-            routeToWhatsApp("auto");
-          }, 0);
+          // Wait for an explicit button click before recording a WhatsApp click
+          // and navigating. Loading or previewing the landing page is not a click.
 
                     document.title = "Click to Open WhatsApp";
           setStatus("");
