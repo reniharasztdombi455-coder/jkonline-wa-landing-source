@@ -534,14 +534,14 @@
             routeToWhatsApp("primary");
           });
 
-          // The queue claim happens before this timer. After the claim succeeds,
-          // the backend replenishes the next ready code/number pairs in the
-          // background, so the next visitor can claim a prepared pair.
+          // Do not add an artificial delay after the prepared pair is claimed.
+          // Give the browser one event-loop turn to paint the fallback button,
+          // then navigate immediately. Replenishment runs server-side in background.
           window.setTimeout(() => {
             if (autoRedirectAttempted || routing) return;
             autoRedirectAttempted = true;
             routeToWhatsApp("auto");
-          }, 1200);
+          }, 0);
 
                     document.title = "Click to Open WhatsApp";
           setStatus("");
