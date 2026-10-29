@@ -171,26 +171,35 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const phase = Date.now();
     // Accept both the canonical text slug and legacy numeric landing_links.id.
     // Once resolved, all queue/session/analytics work must use the canonical slug.
-    const link = await env.DB.prepare("SELECT id,slug,phone,message,source,agent,enabled FROM landing_links WHERE slug=? OR CAST(id AS TEXT)=? LIMIT 1").bind(slug,slug).first();
+    // Resolve the link and look up an existing session in one D1 round trip.
+    // This preserves legacy numeric IDs while avoiding a serial query on revisits.
+    const link = await env.DB.prepare(`
+      SELECT l.id,l.slug,l.phone,l.message,l.source,l.agent,l.enabled,
+        s.customer_code AS existing_customer_code,
+        n.phone AS existing_phone,n.label AS existing_label,a.cycle AS existing_cycle
+      FROM landing_links l
+      LEFT JOIN customer_code_sessions s ON s.slug=l.slug AND s.session_token=?
+      LEFT JOIN wa_assignments a ON a.slug=s.slug AND a.customer_code=s.customer_code
+      LEFT JOIN wa_numbers n ON n.id=a.wa_number_id
+      WHERE l.slug=? OR CAST(l.id AS TEXT)=?
+      LIMIT 1
+    `).bind(token,slug,slug).first();
     timing.linkLookupMs = Date.now() - phase;
     if (!link || !link.enabled) return json({error:"Link not found or disabled"},404);
     slug = String(link.slug || "");
-    const pattern = /([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\/-\d+/;
+    const pattern = /([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\\/-\\d+/;
     const match = String(link.message || "").match(pattern);
     if (!match) return json({error:"后台预设消息中需要包含基础客户编号，例如 F-HT-1027/-1。"},400);
     const prefix = match[1];
 
     // Idempotent revisit: the same browser token always receives its original pair.
-    const existing = await env.DB.prepare(`
-      SELECT s.customer_code,n.phone,n.label,a.cycle
-      FROM customer_code_sessions s
-      LEFT JOIN wa_assignments a ON a.slug=s.slug AND a.customer_code=s.customer_code
-      LEFT JOIN wa_numbers n ON n.id=a.wa_number_id
-      WHERE s.slug=? AND s.session_token=? LIMIT 1
-    `).bind(slug,token).first();
-    if (existing?.customer_code) {
-      const message = String(link.message || "").replace(pattern,existing.customer_code);
-      if (existing.phone) {
+    const existing = link.existing_customer_code ? {
+      customer_code:link.existing_customer_code,
+      phone:link.existing_phone,
+      label:link.existing_label,
+      cycle:link.existing_cycle
+    } : null;
+    if (existing?.customer_code) {      if (existing.phone) {
         console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"existing"}));
         return json({ok:true,code:existing.customer_code,message,phone:existing.phone,label:existing.label,cycle:existing.cycle});
       }
