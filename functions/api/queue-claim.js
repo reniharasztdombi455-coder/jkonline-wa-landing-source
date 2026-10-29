@@ -327,9 +327,14 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // has been successfully assigned. The unique key prevents double-counting
     // if whatsapp-go's legacy tracking request arrives afterward.
     try {
-      await env.DB.prepare(
+      const clickEvent = await env.DB.prepare(
         "INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')"
       ).bind(slug, claimed.customer_code).run();
+      if (Number(clickEvent.meta?.changes || 0) > 0) {
+        await env.DB.prepare(
+          "UPDATE customer_code_sessions SET whatsapp_clicks = whatsapp_clicks + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?"
+        ).bind(slug, token).run();
+      }
     } catch (error) {
       console.log("[wa-click-count-error]", String(error?.message || error).slice(0,160));
     }
