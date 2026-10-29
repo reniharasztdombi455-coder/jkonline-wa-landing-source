@@ -93,8 +93,6 @@ export async function onRequestGet({ request, env, waitUntil }) {
   // Keep the prefilled message and avoid a second client-side redirect.
   const target = new URL("https://wa.me/" + digits);
   target.searchParams.set("text", String(claim.message).slice(0, 800));
-  const isIOS = /iPhone|iPad|iPod/i.test(request.headers.get("User-Agent") || "");
-
   const trackRequest = new Request(new URL("/api/track", incoming.origin), {
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -125,3 +123,4 @@ export async function onRequestGet({ request, env, waitUntil }) {
 
   headers.set("Location", target.toString());
   return new Response(null, { status: 302, headers });
+}
