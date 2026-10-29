@@ -3,7 +3,7 @@ function json(data, status = 200) {
 }
 function clean(v, n = 180) { return String(v ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, n); }
 
-const QUEUE_TARGET = 5;
+const QUEUE_TARGET = 20;
 
 const schema = [
   `CREATE TABLE IF NOT EXISTS landing_code_counters (
@@ -71,11 +71,16 @@ async function reserveOne(DB, link, prefix) {
     RETURNING last_number
   `).bind(prefix).first();
   const code = prefix + "/-" + Number(counter.last_number);
+  const enabled = await DB.prepare("SELECT COUNT(*) AS n FROM wa_numbers WHERE enabled=1").first();
+  if (Number(enabled?.n || 0) < 1) return false;
+
   const state = await DB.prepare("SELECT cycle FROM wa_route_state WHERE id=1").first();
   const baseCycle = Math.max(1, Number(state?.cycle || 1));
   let reserved = null;
 
-  for (let offset = 0; offset < 8 && !reserved; offset++) {
+  // A full cycle may already be occupied. Keep advancing until a cycle has
+  // capacity; an enabled number pool always has capacity in a later cycle.
+  for (let offset = 0; offset < 1000 && !reserved; offset++) {
     const cycle = baseCycle + offset;
     const result = await DB.prepare(`
       INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
@@ -217,14 +222,26 @@ export async function onRequestPost({ request, env, waitUntil }) {
     for (let attempt=0; attempt<4 && !claimed; attempt++) {
       const claimPhase = Date.now();
       const candidate = await env.DB.prepare(`
-        SELECT q.id,q.customer_code,q.wa_number_id,q.cycle,n.phone,n.label
-        FROM wa_prefetch_queue q
-        JOIN wa_numbers n ON n.id=q.wa_number_id AND n.enabled=1
-        WHERE q.slug=? AND q.status='ready'
-        ORDER BY q.id LIMIT 1
-      `).bind(slug).first();
+        UPDATE wa_prefetch_queue
+        SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHERE id=(
+          SELECT q.id FROM wa_prefetch_queue q
+          JOIN wa_numbers n ON n.id=q.wa_number_id AND n.enabled=1
+          WHERE q.slug=? AND q.status='ready'
+          ORDER BY q.id LIMIT 1
+        ) AND status='ready'
+        RETURNING id,customer_code,wa_number_id,cycle,
+          (SELECT phone FROM wa_numbers WHERE id=wa_prefetch_queue.wa_number_id) AS phone,
+          (SELECT label FROM wa_numbers WHERE id=wa_prefetch_queue.wa_number_id) AS label
+      `).bind(token,slug).first();
+      claimQueryMs += Date.now() - claimPhase;
+      if (candidate) {
+        claimed=candidate;
+        phone=candidate.phone;
+        label=candidate.label;
+        continue;
+      }
       if (!candidate) {
-        claimQueryMs += Date.now() - claimPhase;
         // This slow path is only for an empty queue; normal visitors consume
         // the prefilled queue without waiting for number/code generation.
         const refillPhase = Date.now();
@@ -259,12 +276,6 @@ export async function onRequestPost({ request, env, waitUntil }) {
         if (row) { claimed=row; phone=retry.phone; label=retry.label; }
         continue;
       }
-      const row = await env.DB.prepare(`UPDATE wa_prefetch_queue
-        SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
-        WHERE id=? AND status='ready'
-        RETURNING id,customer_code,wa_number_id,cycle`).bind(token,candidate.id).first();
-      claimQueryMs += Date.now() - claimPhase;
-      if (row) { claimed=row; phone=candidate.phone; label=candidate.label; }
     }
     timing.claimQueryMs = claimQueryMs;
     timing.refillInlineMs = refillInlineMs;
