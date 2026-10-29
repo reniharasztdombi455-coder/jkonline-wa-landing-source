@@ -102,6 +102,8 @@ async function reserveOne(DB, link, prefix) {
 }
 
 async function refill(DB, link, prefix, target = 3) {
+  const started = Date.now();
+  const before = await readyCount(DB, link.slug).catch(() => -1);
   // Serialize replenishment per link so parallel visitors cannot overfill the queue.
   await DB.prepare("INSERT OR IGNORE INTO wa_queue_refill_locks(slug,locked_until) VALUES(?,0)").bind(link.slug).run();
   const lock = await DB.prepare(`
@@ -109,16 +111,27 @@ async function refill(DB, link, prefix, target = 3) {
     WHERE slug=? AND locked_until < unixepoch()
     RETURNING slug
   `).bind(link.slug).first();
-  if (!lock) return;
+  if (!lock) {
+    console.log("[wa-queue-refill]", JSON.stringify({slug:link.slug,outcome:"lock-busy",readyBefore:before,target,elapsedMs:Date.now()-started}));
+    return;
+  }
+  let created = 0;
+  let outcome = "target-reached";
   try {
     for (let i = 0; i < target; i++) {
       const count = await readyCount(DB, link.slug);
-      if (count >= target) return;
+      if (count >= target) break;
       const ok = await reserveOne(DB, link, prefix);
-      if (!ok) return;
+      if (!ok) {
+        outcome = "no-available-number";
+        break;
+      }
+      created++;
     }
   } finally {
     await DB.prepare("UPDATE wa_queue_refill_locks SET locked_until=0 WHERE slug=?").bind(link.slug).run();
+    const after = await readyCount(DB, link.slug).catch(() => -1);
+    console.log("[wa-queue-refill]", JSON.stringify({slug:link.slug,outcome,readyBefore:before,readyAfter:after,created,target,elapsedMs:Date.now()-started}));
   }
 }
 
