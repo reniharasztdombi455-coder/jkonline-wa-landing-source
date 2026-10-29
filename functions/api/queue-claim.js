@@ -41,9 +41,20 @@ const schema = [
   )`
 ];
 
+// Cache schema initialization per Worker isolate. Running CREATE TABLE IF NOT EXISTS
+// for every visitor adds avoidable D1 round trips to the redirect's critical path.
+let schemaReady;
 async function ensureSchema(DB) {
-  await Promise.all(schema.map(sql => DB.prepare(sql).run()));
-  await DB.prepare("INSERT OR IGNORE INTO wa_route_state(id,cycle) VALUES(1,1)").run();
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      await Promise.all(schema.map(sql => DB.prepare(sql).run()));
+      await DB.prepare("INSERT OR IGNORE INTO wa_route_state(id,cycle) VALUES(1,1)").run();
+    })().catch(error => {
+      schemaReady = null;
+      throw error;
+    });
+  }
+  return schemaReady;
 }
 
 async function readyCount(DB, slug) {
@@ -176,17 +187,44 @@ export async function onRequestPost({ request, env, waitUntil }) {
       return json({error:"No WhatsApp number is available for this existing session."},503);
     }
 
-    // First visit can initialize an empty queue. After a successful claim, refill
-    // runs in the background when the Pages runtime supplies waitUntil.
-    if ((await readyCount(env.DB,slug)) < 1) await refill(env.DB,link,prefix,3);
+    // Fast path: claim an already-prepared pair first. Avoid a COUNT query on
+    // every click; only build the queue if it is empty. Join the phone pool now
+    // so a successful claim does not need another D1 read to resolve its number.
     let claimed = null;
+    let phone = null;
+    let label = null;
     for (let attempt=0; attempt<4 && !claimed; attempt++) {
-      const candidate = await env.DB.prepare("SELECT id,customer_code,wa_number_id,cycle FROM wa_prefetch_queue WHERE slug=? AND status='ready' ORDER BY id LIMIT 1").bind(slug).first();
-      if (!candidate) break;
-      claimed = await env.DB.prepare(`UPDATE wa_prefetch_queue
+      const candidate = await env.DB.prepare(`
+        SELECT q.id,q.customer_code,q.wa_number_id,q.cycle,n.phone,n.label
+        FROM wa_prefetch_queue q
+        JOIN wa_numbers n ON n.id=q.wa_number_id AND n.enabled=1
+        WHERE q.slug=? AND q.status='ready'
+        ORDER BY q.id LIMIT 1
+      `).bind(slug).first();
+      if (!candidate) {
+        // This slow path is only for an empty queue; normal visitors consume
+        // the prefilled queue without waiting for number/code generation.
+        await refill(env.DB,link,prefix,3);
+        const retry = await env.DB.prepare(`
+          SELECT q.id,q.customer_code,q.wa_number_id,q.cycle,n.phone,n.label
+          FROM wa_prefetch_queue q
+          JOIN wa_numbers n ON n.id=q.wa_number_id AND n.enabled=1
+          WHERE q.slug=? AND q.status='ready'
+          ORDER BY q.id LIMIT 1
+        `).bind(slug).first();
+        if (!retry) break;
+        const row = await env.DB.prepare(`UPDATE wa_prefetch_queue
+          SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+          WHERE id=? AND status='ready'
+          RETURNING id,customer_code,wa_number_id,cycle`).bind(token,retry.id).first();
+        if (row) { claimed=row; phone=retry.phone; label=retry.label; }
+        continue;
+      }
+      const row = await env.DB.prepare(`UPDATE wa_prefetch_queue
         SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
         WHERE id=? AND status='ready'
         RETURNING id,customer_code,wa_number_id,cycle`).bind(token,candidate.id).first();
+      if (row) { claimed=row; phone=candidate.phone; label=candidate.label; }
     }
     if (!claimed) return json({error:"当前没有可用的预备号码，请稍后重试。"},503);
 
@@ -217,8 +255,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       }
     }
 
-    const number = await env.DB.prepare("SELECT phone,label FROM wa_numbers WHERE id=? LIMIT 1").bind(claimed.wa_number_id).first();
-    if (!number?.phone) return json({error:"预备号码不存在或已停用，请联系管理员。"},500);
+    if (!phone) return json({error:"预备号码不存在或已停用，请联系管理员。"},500);
 
     const doRefill = () => refill(env.DB,link,prefix,3).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
     if (typeof waitUntil === "function") waitUntil(doRefill());
@@ -228,7 +265,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // Keep the visitor's critical path short: queue depth is operational
     // telemetry, not required to open WhatsApp. Refill runs via waitUntil.
     console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"new",cycle:claimed.cycle}));
-    return json({ok:true,code:claimed.customer_code,message,phone:number.phone,label:number.label,cycle:claimed.cycle});
+    return json({ok:true,code:claimed.customer_code,message,phone,label,cycle:claimed.cycle});
   } catch (error) {
     console.log("[wa-queue-error]",String(error?.message||error).slice(0,200));
     return json({error:"无法领取预备资源，请稍后重试。"},500);
