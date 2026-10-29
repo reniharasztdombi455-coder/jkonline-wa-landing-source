@@ -65,7 +65,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
     return fallbackPage(slug, claim?.error || "No prepared WhatsApp contact is available right now. Please use the fallback button.");
   }
 
-  const digits = String(claim.phone).replace(/\\D/g, "");
+  const digits = String(claim.phone).replace(/\D/g, "");
   if (digits.length < 8 || digits.length > 15) {
     return fallbackPage(slug, "The assigned WhatsApp number is invalid. Please use the fallback button.");
   }
