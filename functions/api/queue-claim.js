@@ -236,7 +236,20 @@ export async function onRequestPost({ request, env, waitUntil }) {
           WHERE q.slug=? AND q.status='ready'
           ORDER BY q.id LIMIT 1
         `).bind(slug).first();
-        if (!retry) break;
+        if (!retry) {
+          // Another request may currently hold the refill lock while replenishing
+          // the queue. Do not immediately return 503 to concurrent real visitors:
+          // reserve one unique pair atomically as a fallback, then let the next
+          // loop iteration claim it. The code counter and assignment constraints
+          // prevent duplicate customer codes/number-cycle allocations.
+          const fallbackPhase = Date.now();
+          const fallbackCreated = await reserveOne(env.DB, link, prefix);
+          console.log("[wa-queue-concurrent-fallback]", JSON.stringify({
+            slug, created: Boolean(fallbackCreated), elapsedMs: Date.now() - fallbackPhase
+          }));
+          if (fallbackCreated) continue;
+          break;
+        }
         const row = await env.DB.prepare(`UPDATE wa_prefetch_queue
           SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
           WHERE id=? AND status='ready'
