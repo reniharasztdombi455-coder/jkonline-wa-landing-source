@@ -67,6 +67,40 @@ async function ensureSchema(DB) {
   return schemaReady;
 }
 
+async function ensurePrefetchedLinks(DB, link) {
+  await DB.prepare(`CREATE TABLE IF NOT EXISTS wa_prefetched_links (
+    slug TEXT NOT NULL,
+    customer_code TEXT NOT NULL,
+    whatsapp_url TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    PRIMARY KEY(slug, customer_code)
+  )`).run();
+
+  const pattern = /([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\/-\d+/;
+  const template = String(link.message || "");
+  const rows = await DB.prepare(`
+    SELECT q.customer_code, n.phone
+    FROM wa_prefetch_queue q
+    JOIN wa_numbers n ON n.id=q.wa_number_id
+    WHERE q.slug=? AND q.status IN ('ready','claimed') AND n.enabled=1
+      AND NOT EXISTS (
+        SELECT 1 FROM wa_prefetched_links p
+        WHERE p.slug=q.slug AND p.customer_code=q.customer_code
+      )
+    ORDER BY q.id LIMIT 40
+  `).bind(link.slug).all();
+
+  for (const row of (rows.results || [])) {
+    const digits = String(row.phone || "").replace(/\\D/g, "");
+    if (digits.length < 8 || digits.length > 15) continue;
+    const message = template.replace(pattern, row.customer_code);
+    const target = new URL("https://wa.me/" + digits);
+    target.searchParams.set("text", message.slice(0, 800));
+    await DB.prepare(`INSERT OR IGNORE INTO wa_prefetched_links(slug,customer_code,whatsapp_url)
+      VALUES(?,?,?)`).bind(link.slug,row.customer_code,target.toString()).run();
+  }
+}
+
 async function readyCount(DB, slug) {
   const row = await DB.prepare("SELECT COUNT(*) AS n FROM wa_prefetch_queue WHERE slug=? AND status='ready'").bind(slug).first();
   return Number(row?.n || 0);
@@ -259,7 +293,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
         ) AND status='ready'
         RETURNING id,customer_code,wa_number_id,cycle,
           (SELECT phone FROM wa_numbers WHERE id=wa_prefetch_queue.wa_number_id) AS phone,
-          (SELECT label FROM wa_numbers WHERE id=wa_prefetch_queue.wa_number_id) AS label
+          (SELECT label FROM wa_numbers WHERE id=wa_prefetch_queue.wa_number_id) AS label,
+          (SELECT whatsapp_url FROM wa_prefetched_links WHERE slug=wa_prefetch_queue.slug AND customer_code=wa_prefetch_queue.customer_code) AS whatsapp_url
       `).bind(token,slug).first();
       claimQueryMs += Date.now() - claimPhase;
       if (candidate) {
@@ -363,15 +398,21 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (typeof waitUntil === "function") waitUntil(recordClick());
     else await recordClick();
 
+    const prepareLinks = () => ensurePrefetchedLinks(env.DB,link).catch(error => console.log("[wa-prefetch-link-error]",String(error?.message||error).slice(0,180)));
     const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
-    if (typeof waitUntil === "function") waitUntil(doRefill());
-    else await doRefill();
+    if (typeof waitUntil === "function") {
+      waitUntil(prepareLinks());
+      waitUntil(doRefill());
+    } else {
+      await prepareLinks();
+      await doRefill();
+    }
 
     const message = String(link.message || "").replace(pattern,claimed.customer_code);
     // Keep the visitor's critical path short: queue depth is operational
     // telemetry, not required to open WhatsApp. Refill runs via waitUntil.
     console.log("[wa-timing] queue-claim",JSON.stringify({ ...timing, totalMs:Date.now()-started, outcome:"new", cycle:claimed.cycle }));
-    return json({ok:true,code:claimed.customer_code,message,phone,label,cycle:claimed.cycle});
+    return json({ok:true,code:claimed.customer_code,message,phone,label,cycle:claimed.cycle,whatsapp_url:claimed.whatsapp_url || ""});
   } catch (error) {
     console.log("[wa-timing] queue-claim", JSON.stringify({ ...timing, totalMs:Date.now()-started, outcome:"error" }));
     console.log("[wa-queue-error]",String(error?.message||error).slice(0,200));
