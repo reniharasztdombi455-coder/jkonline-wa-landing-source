@@ -3,7 +3,7 @@ function json(data, status = 200) {
 }
 function clean(v, n = 180) { return String(v ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, n); }
 
-const QUEUE_TARGET = 5;
+const QUEUE_TARGET = 20;
 
 const schema = [
   `CREATE TABLE IF NOT EXISTS landing_code_counters (
