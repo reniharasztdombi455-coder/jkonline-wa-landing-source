@@ -217,12 +217,19 @@ export async function onRequestPost({ request, env, waitUntil }) {
     for (let attempt=0; attempt<4 && !claimed; attempt++) {
       const claimPhase = Date.now();
       const candidate = await env.DB.prepare(`
-        SELECT q.id,q.customer_code,q.wa_number_id,q.cycle,n.phone,n.label
-        FROM wa_prefetch_queue q
-        JOIN wa_numbers n ON n.id=q.wa_number_id AND n.enabled=1
-        WHERE q.slug=? AND q.status='ready'
-        ORDER BY q.id LIMIT 1
-      `).bind(slug).first();
+        UPDATE wa_prefetch_queue
+        SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+        WHERE id=(
+          SELECT q.id FROM wa_prefetch_queue q
+          JOIN wa_numbers n ON n.id=q.wa_number_id AND n.enabled=1
+          WHERE q.slug=? AND q.status='ready'
+          ORDER BY q.id LIMIT 1
+        ) AND status='ready'
+        RETURNING id,customer_code,wa_number_id,cycle,
+          (SELECT phone FROM wa_numbers WHERE id=wa_prefetch_queue.wa_number_id) AS phone,
+          (SELECT label FROM wa_numbers WHERE id=wa_prefetch_queue.wa_number_id) AS label
+      `).bind(token,slug).first();
+      claimQueryMs += Date.now() - claimPhase;
       if (!candidate) {
         claimQueryMs += Date.now() - claimPhase;
         // This slow path is only for an empty queue; normal visitors consume
