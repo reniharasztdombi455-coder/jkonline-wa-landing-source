@@ -3,10 +3,12 @@ name: Queue feature static checks
 on:
   push:
     branches:
+      - main
       - feature/wa-prefetch-queue
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   syntax-and-invariants:
