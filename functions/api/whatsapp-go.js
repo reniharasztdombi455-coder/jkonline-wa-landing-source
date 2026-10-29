@@ -35,9 +35,11 @@ export async function onRequestGet({ request, env, waitUntil }) {
 
   let claimResponse;
   let claim;
+  const claimStarted = Date.now();
   try {
     claimResponse = await claimQueue({ request:claimRequest, env, waitUntil });
     claim = await claimResponse.json();
+    console.log("[wa-timing] whatsapp-go-claim", JSON.stringify({ claimMs:Date.now()-claimStarted, claimStatus:claimResponse.status }));
   } catch {
     return fallbackPage(slug, "We couldn't prepare your WhatsApp contact automatically. Please use the fallback button.");
   }
@@ -75,6 +77,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
   });
   if (typeof waitUntil === "function") waitUntil(tracking);
 
+  console.log("[wa-timing] whatsapp-go-total", JSON.stringify({ totalMs:Date.now()-claimStarted, outcome:"redirect-302" }));
   console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, redirect:"302" }));
   return Response.redirect(target.toString(), 302);
 }
