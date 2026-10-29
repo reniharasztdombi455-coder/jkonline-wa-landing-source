@@ -131,9 +131,14 @@ export async function onRequestPost({ request, env, waitUntil }) {
     return json({ error:"Invalid link or browser session" },400);
   }
 
+  const timing = {};
   try {
+    let phase = Date.now();
     await ensureSchema(env.DB);
+    timing.schemaMs = Date.now() - phase;
+    phase = Date.now();
     const link = await env.DB.prepare("SELECT id,slug,phone,message,source,agent,enabled FROM landing_links WHERE slug=? LIMIT 1").bind(slug).first();
+    timing.linkLookupMs = Date.now() - phase;
     if (!link || !link.enabled) return json({error:"Link not found or disabled"},404);
     const pattern = /([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\/-\d+/;
     const match = String(link.message || "").match(pattern);
@@ -193,7 +198,10 @@ export async function onRequestPost({ request, env, waitUntil }) {
     let claimed = null;
     let phone = null;
     let label = null;
+    let claimQueryMs = 0;
+    let refillInlineMs = 0;
     for (let attempt=0; attempt<4 && !claimed; attempt++) {
+      const claimPhase = Date.now();
       const candidate = await env.DB.prepare(`
         SELECT q.id,q.customer_code,q.wa_number_id,q.cycle,n.phone,n.label
         FROM wa_prefetch_queue q
@@ -202,9 +210,12 @@ export async function onRequestPost({ request, env, waitUntil }) {
         ORDER BY q.id LIMIT 1
       `).bind(slug).first();
       if (!candidate) {
+        claimQueryMs += Date.now() - claimPhase;
         // This slow path is only for an empty queue; normal visitors consume
         // the prefilled queue without waiting for number/code generation.
+        const refillPhase = Date.now();
         await refill(env.DB,link,prefix,3);
+        refillInlineMs += Date.now() - refillPhase;
         const retry = await env.DB.prepare(`
           SELECT q.id,q.customer_code,q.wa_number_id,q.cycle,n.phone,n.label
           FROM wa_prefetch_queue q
@@ -217,6 +228,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
           SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
           WHERE id=? AND status='ready'
           RETURNING id,customer_code,wa_number_id,cycle`).bind(token,retry.id).first();
+        claimQueryMs += Date.now() - claimPhase;
         if (row) { claimed=row; phone=retry.phone; label=retry.label; }
         continue;
       }
@@ -224,13 +236,23 @@ export async function onRequestPost({ request, env, waitUntil }) {
         SET status='claimed',claimed_session_token=?,claimed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
         WHERE id=? AND status='ready'
         RETURNING id,customer_code,wa_number_id,cycle`).bind(token,candidate.id).first();
+      claimQueryMs += Date.now() - claimPhase;
       if (row) { claimed=row; phone=candidate.phone; label=candidate.label; }
     }
-    if (!claimed) return json({error:"当前没有可用的预备号码，请稍后重试。"},503);
+    timing.claimQueryMs = claimQueryMs;
+    timing.refillInlineMs = refillInlineMs;
+    if (!claimed) {
+      console.log("[wa-timing] queue-claim", JSON.stringify({ ...timing, totalMs:Date.now()-started, outcome:"empty-queue" }));
+      return json({error:"当前没有可用的预备号码，请稍后重试。"},503);
+    }
 
+    let sessionSaveMs = 0;
     try {
+      const savePhase = Date.now();
       await env.DB.prepare(`INSERT INTO customer_code_sessions(slug,session_token,customer_code,source,agent)
         VALUES(?,?,?,?,?)`).bind(slug,token,claimed.customer_code,link.source||"direct",link.agent||"unknown").run();
+      sessionSaveMs = Date.now() - savePhase;
+      timing.sessionSaveMs = sessionSaveMs;
     } catch (error) {
       const session = await env.DB.prepare("SELECT customer_code FROM customer_code_sessions WHERE slug=? AND session_token=? LIMIT 1").bind(slug,token).first();
       if (!session) {
@@ -264,9 +286,10 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const message = String(link.message || "").replace(pattern,claimed.customer_code);
     // Keep the visitor's critical path short: queue depth is operational
     // telemetry, not required to open WhatsApp. Refill runs via waitUntil.
-    console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"new",cycle:claimed.cycle}));
+    console.log("[wa-timing] queue-claim",JSON.stringify({ ...timing, totalMs:Date.now()-started, outcome:"new", cycle:claimed.cycle }));
     return json({ok:true,code:claimed.customer_code,message,phone,label,cycle:claimed.cycle});
   } catch (error) {
+    console.log("[wa-timing] queue-claim", JSON.stringify({ ...timing, totalMs:Date.now()-started, outcome:"error" }));
     console.log("[wa-queue-error]",String(error?.message||error).slice(0,200));
     return json({error:"无法领取预备资源，请稍后重试。"},500);
   }
