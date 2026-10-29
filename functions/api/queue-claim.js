@@ -3,6 +3,8 @@ function json(data, status = 200) {
 }
 function clean(v, n = 180) { return String(v ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, n); }
 
+const QUEUE_TARGET = 5;
+
 const schema = [
   `CREATE TABLE IF NOT EXISTS landing_code_counters (
     slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
@@ -101,7 +103,7 @@ async function reserveOne(DB, link, prefix) {
   return true;
 }
 
-async function refill(DB, link, prefix, target = 3) {
+async function refill(DB, link, prefix, target = QUEUE_TARGET) {
   const started = Date.now();
   const before = await readyCount(DB, link.slug).catch(() => -1);
   // Serialize replenishment per link so parallel visitors cannot overfill the queue.
@@ -196,7 +198,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
         const n = pool.find(x => Number(x.id)===Number(assigned.wa_number_id));
         if (n) {
           await env.DB.prepare("UPDATE wa_route_state SET cycle=MAX(cycle,?) WHERE id=1").bind(assigned.cycle).run();
-          const doRefill = () => refill(env.DB,link,prefix,3).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
+          const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
           if (typeof waitUntil === "function") waitUntil(doRefill()); else await doRefill();
           console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"legacy-session",cycle:assigned.cycle}));
           return json({ok:true,code:existing.customer_code,message,phone:n.phone,label:n.label,cycle:assigned.cycle});
@@ -227,7 +229,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
         // This slow path is only for an empty queue; normal visitors consume
         // the prefilled queue without waiting for number/code generation.
         const refillPhase = Date.now();
-        await refill(env.DB,link,prefix,3);
+        await refill(env.DB,link,prefix,QUEUE_TARGET);
         refillInlineMs += Date.now() - refillPhase;
         const retry = await env.DB.prepare(`
           SELECT q.id,q.customer_code,q.wa_number_id,q.cycle,n.phone,n.label
@@ -296,7 +298,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
         const original = await env.DB.prepare("SELECT n.phone,n.label,a.cycle FROM wa_assignments a JOIN wa_numbers n ON n.id=a.wa_number_id WHERE a.slug=? AND a.customer_code=? LIMIT 1").bind(slug,session.customer_code).first();
         if (!original?.phone) throw error;
         const originalMessage = String(link.message || "").replace(pattern,session.customer_code);
-        const doRefill = () => refill(env.DB,link,prefix,3).catch(refillError => console.log("[wa-queue-refill-error]",String(refillError?.message||refillError).slice(0,180)));
+        const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(refillError => console.log("[wa-queue-refill-error]",String(refillError?.message||refillError).slice(0,180)));
         if (typeof waitUntil === "function") waitUntil(doRefill()); else await doRefill();
         console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"parallel-reuse"}));
         return json({ok:true,code:session.customer_code,message:originalMessage,phone:original.phone,label:original.label,cycle:original.cycle});
@@ -305,7 +307,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     if (!phone) return json({error:"预备号码不存在或已停用，请联系管理员。"},500);
 
-    const doRefill = () => refill(env.DB,link,prefix,3).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
+    const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
     if (typeof waitUntil === "function") waitUntil(doRefill());
     else await doRefill();
 
