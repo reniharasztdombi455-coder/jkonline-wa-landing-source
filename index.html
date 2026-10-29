@@ -481,54 +481,36 @@
             sessionToken = (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
           }
 
-          const assignedResponse = await fetch("/api/assign-code", {
+          // Claim one pre-reserved customer-code + WhatsApp-number pair.
+          // The queue endpoint also starts replenishing the next ready pairs.
+          const claimResponse = await fetch("/api/queue-claim", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ slug, session_token: sessionToken }),
             cache: "no-store",
             credentials: "same-origin"
           });
-          const assigned = await assignedResponse.json().catch(() => ({}));
-          if (!assignedResponse.ok || !assigned.code) {
-            throw new Error(assigned.error || "Unable to assign your customer code.");
-          }
-          const assignedMessage = cleanText(assigned.message, 800);
-          track("page_view");
-
-          // 使用项目中已配置的公开接口。
-          const response = await fetch(
-            "/api/public-config?slug=" + encodeURIComponent(slug),
-            {
-              method: "GET",
-              cache: "no-store",
-              credentials: "same-origin"
-            }
-          );
-
-          const result = await response.json().catch(() => ({}));
-
-          if (!response.ok || !result.link) {
+          const claim = await claimResponse.json().catch(() => ({}));
+          if (!claimResponse.ok || !claim.ok || !claim.code || !claim.phone) {
             throw new Error(
-              result.error ||
-              "Unable to load page configuration. Please try again."
+              claim.error || "Unable to prepare your WhatsApp contact. Please try again."
             );
           }
 
-          const config = result.link;
-          const message = assignedMessage;
-          const target = whatsappUrl(config.phone, message);
-
+          const message = cleanText(claim.message, 800);
+          const phone = cleanText(claim.phone, 30);
+          const target = whatsappUrl(phone, message);
           if (!target) {
-            throw new Error(
-              "The WhatsApp phone number configured for this page is invalid."
-            );
+            throw new Error("The assigned WhatsApp number is invalid.");
           }
 
           $("message-text").textContent =
             message || "No position code has been configured.";
-
           $("primary-button").href = target;
           $("primary-button").hidden = false;
+
+          // Record the page view independently; analytics must not block routing.
+          void track("page_view");
 
           let routing = false;
           let autoRedirectAttempted = false;
@@ -540,35 +522,11 @@
             button.style.opacity = ".65";
             setStatus("");
 
-            try {
-              const routeResponse = await fetch("/api/assign-wa", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ slug, session_token: sessionToken }),
-                cache: "no-store",
-                credentials: "same-origin"
-              });
-              const route = await routeResponse.json().catch(() => ({}));
-              if (!routeResponse.ok || !route.phone) {
-                throw new Error(route.error || "Unable to connect to WhatsApp. Please use the button to try again.");
-              }
-              const target = whatsappUrl(route.phone, message);
-              if (!target) throw new Error("The assigned WhatsApp number is invalid.");
-
-              // Do not wait for analytics before navigating. A slow or stalled
-              // tracking request must never leave the visitor stranded on this page.
-              // track() uses keepalive:true so the browser can finish the request
-              // while navigating away.
-              void track("whatsapp_click", buttonType);
-
-              // Navigate in the current tab to WhatsApp Web on desktop or wa.me
-              // on mobile. This is a normal top-level navigation, not a popup.
-              window.location.assign(target);
-            } catch (error) {
-              routing = false;
-              button.style.opacity = "";
-              setStatus(error.message || "Unable to connect to WhatsApp. Please tap the button to try again.");
-            }
+            // The number was already claimed atomically by /api/queue-claim.
+            // Do not call /api/assign-wa here, or the visitor could get a
+            // second number that does not match the pre-reserved customer code.
+            void track("whatsapp_click", buttonType);
+            window.location.assign(target);
           }
 
           $("primary-button").addEventListener("click", (event) => {
@@ -576,17 +534,16 @@
             routeToWhatsApp("primary");
           });
 
-          // Try an automatic same-tab redirect once the page has loaded its
-          // customer code and configuration. Some in-app browsers restrict
-          // automatic external-app handoff; the visible button remains as a
-          // user-initiated fallback if the redirect is blocked or fails.
+          // The queue claim happens before this timer. After the claim succeeds,
+          // the backend replenishes the next ready code/number pairs in the
+          // background, so the next visitor can claim a prepared pair.
           window.setTimeout(() => {
             if (autoRedirectAttempted || routing) return;
             autoRedirectAttempted = true;
             routeToWhatsApp("auto");
           }, 1200);
 
-          document.title = "Click to Open WhatsApp";
+                    document.title = "Click to Open WhatsApp";
           setStatus("");
         } catch (error) {
           setStatus(
