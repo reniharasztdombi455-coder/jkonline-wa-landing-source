@@ -28,7 +28,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
   // makes a fresh request and performs the claim.
   const secPurpose = (request.headers.get("Sec-Purpose") || "").toLowerCase();
   const purpose = (request.headers.get("Purpose") || "").toLowerCase();
-  if (/(^|[;,\\s])prefetch([;,\\s]|$)|prerender/.test(secPurpose) || purpose.includes("prefetch")) {
+  if (/(^|[;,\s])prefetch([;,\s]|$)|prerender/.test(secPurpose) || purpose.includes("prefetch")) {
     console.log("[wa-queue-skip]", JSON.stringify({ slug, reason:"speculative-request", secPurpose:secPurpose.slice(0,80) }));
     return new Response(null, {
       status:204,
