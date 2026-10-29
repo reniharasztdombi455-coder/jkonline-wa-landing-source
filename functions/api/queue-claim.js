@@ -146,7 +146,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
   const started = Date.now();
   let body;
   try { body = await request.json(); } catch { return json({ error:"Invalid JSON" },400); }
-  const slug = clean(body.slug,60), token = clean(body.session_token,80);
+  let slug = clean(body.slug,60);
+  const token = clean(body.session_token,80);
   if (!/^[A-Za-z0-9_-]{1,60}$/.test(slug) || !/^[A-Za-z0-9_-]{20,80}$/.test(token)) {
     return json({ error:"Invalid link or browser session" },400);
   }
@@ -156,9 +157,12 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // Production schema is provisioned ahead of traffic. Do not run CREATE TABLE
     // statements in the redirect hot path: D1 DDL adds latency on every cold isolate.
     const phase = Date.now();
-    const link = await env.DB.prepare("SELECT id,slug,phone,message,source,agent,enabled FROM landing_links WHERE slug=? LIMIT 1").bind(slug).first();
+    // Accept both the canonical text slug and legacy numeric landing_links.id.
+    // Once resolved, all queue/session/analytics work must use the canonical slug.
+    const link = await env.DB.prepare("SELECT id,slug,phone,message,source,agent,enabled FROM landing_links WHERE slug=? OR CAST(id AS TEXT)=? LIMIT 1").bind(slug,slug).first();
     timing.linkLookupMs = Date.now() - phase;
     if (!link || !link.enabled) return json({error:"Link not found or disabled"},404);
+    slug = String(link.slug || "");
     const pattern = /([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\/-\d+/;
     const match = String(link.message || "").match(pattern);
     if (!match) return json({error:"后台预设消息中需要包含基础客户编号，例如 F-HT-1027/-1。"},400);
