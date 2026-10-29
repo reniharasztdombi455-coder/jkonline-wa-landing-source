@@ -71,11 +71,16 @@ async function reserveOne(DB, link, prefix) {
     RETURNING last_number
   `).bind(prefix).first();
   const code = prefix + "/-" + Number(counter.last_number);
+  const enabled = await DB.prepare("SELECT COUNT(*) AS n FROM wa_numbers WHERE enabled=1").first();
+  if (Number(enabled?.n || 0) < 1) return false;
+
   const state = await DB.prepare("SELECT cycle FROM wa_route_state WHERE id=1").first();
   const baseCycle = Math.max(1, Number(state?.cycle || 1));
   let reserved = null;
 
-  for (let offset = 0; offset < 8 && !reserved; offset++) {
+  // A full cycle may already be occupied. Keep advancing until a cycle has
+  // capacity; an enabled number pool always has capacity in a later cycle.
+  for (let offset = 0; offset < 1000 && !reserved; offset++) {
     const cycle = baseCycle + offset;
     const result = await DB.prepare(`
       INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
