@@ -9,7 +9,15 @@ const schema = [
   `CREATE TABLE IF NOT EXISTS landing_code_counters (
     slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
   )`,
-  `CREATE TABLE IF NOT EXISTS unique_customer_events (\n    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL,\n    event_type TEXT NOT NULL, first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),\n    UNIQUE(slug, customer_code, event_type)\n  )`,\n  `CREATE TABLE IF NOT EXISTS customer_code_sessions (
+  `CREATE TABLE IF NOT EXISTS unique_customer_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL,
+    customer_code TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    UNIQUE(slug, customer_code, event_type)
+  )`,
+  `CREATE TABLE IF NOT EXISTS customer_code_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, session_token TEXT NOT NULL,
     customer_code TEXT NOT NULL UNIQUE, source TEXT NOT NULL DEFAULT 'direct',
     agent TEXT NOT NULL DEFAULT 'unknown',
