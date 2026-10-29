@@ -115,8 +115,8 @@ export async function onRequestGet({ request, env, waitUntil }) {
   });
   if (typeof waitUntil === "function") waitUntil(tracking);
 
-  console.log("[wa-timing] whatsapp-go-total", JSON.stringify({ totalMs:Date.now()-claimStarted, outcome:"redirect-302" }));
-  console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, redirect:"302" }));
+  console.log("[wa-timing] whatsapp-go-total", JSON.stringify({ totalMs:Date.now()-claimStarted, outcome:isIOS ? "ios-app-handoff-page" : "redirect-302" }));
+  console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, response:isIOS ? "200-ios-app-handoff-page" : "302-redirect" }));
   // Construct a fresh response so headers remain mutable in Cloudflare Workers.
   const headers = new Headers({
     "Cache-Control": "no-store, no-cache, must-revalidate",
