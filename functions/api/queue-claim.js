@@ -133,10 +133,11 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
   const timing = {};
   try {
+    // Tables are provisioned in the Preview D1 database before traffic.
+    // Do not run CREATE TABLE checks on the visitor's redirect path: on a cold
+    // Worker isolate those D1 round trips add hundreds of milliseconds.
+    timing.schemaMs = 0;
     let phase = Date.now();
-    await ensureSchema(env.DB);
-    timing.schemaMs = Date.now() - phase;
-    phase = Date.now();
     const link = await env.DB.prepare("SELECT id,slug,phone,message,source,agent,enabled FROM landing_links WHERE slug=? LIMIT 1").bind(slug).first();
     timing.linkLookupMs = Date.now() - phase;
     if (!link || !link.enabled) return json({error:"Link not found or disabled"},404);
