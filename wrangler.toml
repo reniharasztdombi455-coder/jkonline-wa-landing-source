@@ -5,5 +5,5 @@ compatibility_date = "2026-10-27"
 # Safety guard: feature branch must never bind to the production D1 database.
 [[d1_databases]]
 binding = "DB"
-database_name = "jkonline-wa-local-test-only"
-database_id = "00000000-0000-0000-0000-000000000001"
+database_name = "jkonline-wa-preview-db"
+database_id = "f569b18e-59e2-4303-82b9-afc03a250f10"
