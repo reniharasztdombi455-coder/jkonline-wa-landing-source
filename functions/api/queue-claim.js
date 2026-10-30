@@ -157,7 +157,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // Resolve the link and look up an existing session in one D1 round trip.
     // This preserves legacy numeric IDs while avoiding a serial query on revisits.
     const link = await env.DB.prepare(`
-      SELECT l.id,l.slug,l.phone,l.message,l.source,l.agent,l.enabled,
+      SELECT l.id,l.slug,l.phone,l.message,l.contact_mode,l.source,l.agent,l.enabled,
         s.customer_code AS existing_customer_code,
         n.phone AS existing_phone,n.label AS existing_label,a.cycle AS existing_cycle
       FROM landing_links l
@@ -186,7 +186,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       const message = String(link.message || "").replace(pattern,existing.customer_code);
       if (existing.phone) {
         console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"existing"}));
-        return json({ok:true,code:existing.customer_code,message,phone:existing.phone,label:existing.label,cycle:existing.cycle});
+        return json({ok:true,code:existing.customer_code,message,phone:existing.phone,contact_mode:link.contact_mode || "prefill",label:existing.label,cycle:existing.cycle});
       }
       // Legacy session created before queue rollout: keep its original customer code
       // and allocate a phone to that code rather than consuming a different queued code.
@@ -215,7 +215,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
           const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
           if (typeof waitUntil === "function") waitUntil(doRefill()); else await doRefill();
           console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"legacy-session",cycle:assigned.cycle}));
-          return json({ok:true,code:existing.customer_code,message,phone:n.phone,label:n.label,cycle:assigned.cycle});
+          return json({ok:true,code:existing.customer_code,message,phone:n.phone,contact_mode:link.contact_mode || "prefill",label:n.label,cycle:assigned.cycle});
         }
       }
       return json({error:"No WhatsApp number is available for this existing session."},503);
@@ -319,7 +319,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
         const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(refillError => console.log("[wa-queue-refill-error]",String(refillError?.message||refillError).slice(0,180)));
         if (typeof waitUntil === "function") waitUntil(doRefill()); else await doRefill();
         console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:"parallel-reuse"}));
-        return json({ok:true,code:session.customer_code,message:originalMessage,phone:original.phone,label:original.label,cycle:original.cycle});
+        return json({ok:true,code:session.customer_code,message:originalMessage,phone:original.phone,contact_mode:link.contact_mode || "prefill",label:original.label,cycle:original.cycle});
       }
     }
 
@@ -336,7 +336,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // Keep the visitor's critical path short: queue depth is operational
     // telemetry, not required to open WhatsApp. Refill runs via waitUntil.
     console.log("[wa-timing] queue-claim",JSON.stringify({ ...timing, totalMs:Date.now()-started, outcome:"new", cycle:claimed.cycle }));
-    return json({ok:true,code:claimed.customer_code,message,phone,label,cycle:claimed.cycle});
+    return json({ok:true,code:claimed.customer_code,message,phone,contact_mode:link.contact_mode || "prefill",label,cycle:claimed.cycle});
   } catch (error) {
     console.log("[wa-timing] queue-claim", JSON.stringify({ ...timing, totalMs:Date.now()-started, outcome:"error" }));
     console.log("[wa-queue-error]",String(error?.message||error).slice(0,200));
