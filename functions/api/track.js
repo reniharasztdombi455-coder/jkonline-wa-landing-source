@@ -21,19 +21,30 @@ export async function onRequestPost({ request, env }) {
     const counterColumn = eventType === "page_view" ? "page_views" : "whatsapp_clicks";
     // D1 batch is transactional: ledger, event row and counter either all commit or all roll back.
     // SQLite changes() passes the ledger INSERT result to the next statement, preventing duplicates.
+    // Page views are unique per customer session; WhatsApp clicks are an
+    // action metric and every deliberate click must create its own event row.
+    if (eventType === "page_view") {
+      const results = await env.DB.batch([
+        env.DB.prepare("INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, ?)").bind(slug, customerCode, eventType),
+        env.DB.prepare("INSERT INTO events (link_id, slug, event_type, source, agent, campaign, ad, button_type, page_path, referrer_host) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() = 1").bind(
+          link.id, slug, eventType, link.source, link.agent, link.campaign, link.ad,
+          clean(body.button_type, 40) || null, clean(body.page_path, 180) || "/", clean(body.referrer_host, 120) || null
+        ),
+        env.DB.prepare("UPDATE customer_code_sessions SET page_views = page_views + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ? AND changes() = 1").bind(slug, sessionToken)
+      ]);
+      const counted = Number(results?.[0]?.meta?.changes || 0) === 1;
+      return Response.json({ ok: true, counted, deduplicated: !counted }, { headers: { "Cache-Control": "no-store" } });
+    }
+
     const results = await env.DB.batch([
-      env.DB.prepare("INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, ?)").bind(slug, customerCode, eventType),
-      env.DB.prepare("INSERT INTO events (link_id, slug, event_type, source, agent, campaign, ad, button_type, page_path, referrer_host) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE changes() = 1").bind(
+      env.DB.prepare("INSERT INTO events (link_id, slug, event_type, source, agent, campaign, ad, button_type, page_path, referrer_host) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(
         link.id, slug, eventType, link.source, link.agent, link.campaign, link.ad,
         clean(body.button_type, 40) || null, clean(body.page_path, 180) || "/", clean(body.referrer_host, 120) || null
       ),
-      env.DB.prepare(counterColumn
-        ? "UPDATE customer_code_sessions SET " + counterColumn + " = " + counterColumn + " + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ? AND changes() = 1"
-        : "UPDATE customer_code_sessions SET last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ? AND changes() = 1"
-      ).bind(slug, sessionToken)
+      env.DB.prepare("UPDATE customer_code_sessions SET whatsapp_clicks = whatsapp_clicks + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?").bind(slug, sessionToken)
     ]);
-    const counted = Number(results?.[0]?.meta?.changes || 0) === 1;
-    return Response.json({ ok: true, counted, deduplicated: !counted }, { headers: { "Cache-Control": "no-store" } });
+    const counted = Number(results?.[1]?.meta?.changes || 0) === 1;
+    return Response.json({ ok: counted, counted, deduplicated: false }, { status: counted ? 200 : 409, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.log("[track-error]", String(error?.message || error).slice(0, 180));
     return Response.json({ error: "Could not save event" }, { status: 500 });
