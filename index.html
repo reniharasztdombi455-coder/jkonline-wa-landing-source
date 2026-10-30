@@ -1,371 +1,40 @@
-
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#202020">
-  <meta name="description" content="Connect with your dedicated account manager on WhatsApp.">
-  <title>Click to Open WhatsApp</title>
-
-  <style>
-    :root {
-      --ink: #111820;
-      --muted: #777c82;
-      --green: #25d366;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      min-height: 100%;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: grid;
-      place-items: center;
-      padding: 28px 18px;
-      color: var(--ink);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      background-color: #bfc0c0;
-      background-image:
-        radial-gradient(ellipse at 78% 12%, rgba(255,255,255,.98) 0%, rgba(244,244,242,.88) 24%, transparent 48%),
-        radial-gradient(ellipse at 8% 8%, rgba(28,28,28,.98) 0%, rgba(74,74,73,.90) 28%, transparent 55%),
-        radial-gradient(ellipse at 92% 88%, rgba(74,74,73,.85) 0%, transparent 42%),
-        linear-gradient(148deg, #282928 0%, #747574 34%, #f5f5f3 49%, #d7d8d6 72%, #737472 100%);
-      background-attachment: fixed;
-      position: relative;
-      isolation: isolate;
-      overflow-x: hidden;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      z-index: -1;
-      inset: 0;
-      pointer-events: none;
-      background:
-        linear-gradient(145deg, transparent 0 44%, rgba(255,255,255,.58) 44.2%, rgba(255,255,255,.08) 44.7%, transparent 45.3%),
-        linear-gradient(24deg, transparent 0 27%, rgba(20,20,20,.32) 27.1%, rgba(255,255,255,.36) 27.4%, transparent 28%),
-        radial-gradient(ellipse at 50% 50%, transparent 0%, rgba(0,0,0,.09) 100%);
-    }
-
-    .card {
-      width: min(100%, 650px);
-      padding: 42px 42px 38px;
-      border: 1px solid rgba(255,255,255,.86);
-      border-radius: 30px;
-      background: rgba(255,255,255,.78);
-      box-shadow:
-        0 30px 90px rgba(0,0,0,.20),
-        0 3px 8px rgba(0,0,0,.04),
-        inset 0 1px 0 rgba(255,255,255,.95);
-      backdrop-filter: blur(26px);
-      -webkit-backdrop-filter: blur(26px);
-      text-align: center;
-    }
-
-    .brand-icon {
-      width: 92px;
-      height: 92px;
-      display: grid;
-      place-items: center;
-      margin: 0 auto 27px;
-      border-radius: 27px;
-      background: var(--green);
-      box-shadow:
-        0 12px 30px rgba(37,211,102,.28),
-        inset 0 1px 0 rgba(255,255,255,.35);
-    }
-
-    .brand-icon svg {
-      display: block;
-      width: 70px;
-      height: 70px;
-    }
-
-    h1 {
-      margin: 0;
-      color: #111820;
-      font-size: clamp(29px, 5vw, 42px);
-      font-weight: 760;
-      line-height: 1.3;
-      letter-spacing: -1.15px;
-      overflow-wrap: anywhere;
-    }
-
-    .subtitle {
-      margin: 14px 0 0;
-      color: var(--muted);
-      font-size: clamp(15px, 2.5vw, 20px);
-      line-height: 1.8;
-      letter-spacing: .1px;
-      overflow-wrap: anywhere;
-    }
-
-    .divider {
-      width: 76px;
-      height: 1px;
-      margin: 25px auto 28px;
-      background: linear-gradient(90deg, transparent, rgba(80,80,80,.30), transparent);
-    }
-
-    .code-panel {
-      padding: 24px 24px 23px;
-      border: 1px solid rgba(255,255,255,.80);
-      border-radius: 20px;
-      background: rgba(255,255,255,.39);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
-    }
-
-    .field-label {
-      display: block;
-      margin: 0 0 19px;
-      color: #171a1d;
-      text-align: center;
-      overflow-wrap: anywhere;
-    }
-
-    .field-label strong {
-      display: block;
-      margin-bottom: 6px;
-      font-size: clamp(16px, 2.2vw, 18px);
-      font-weight: 750;
-      line-height: 1.6;
-      letter-spacing: .05px;
-    }
-
-    .field-label span {
-      display: block;
-      color: #777c82;
-      font-size: clamp(13px, 1.8vw, 15px);
-      font-weight: 400;
-      line-height: 1.8;
-    }
-
-    .code-box {
-      min-height: 76px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 17px 19px;
-      border: 1px solid rgba(25,35,30,.10);
-      border-radius: 15px;
-      background: rgba(255,255,255,.72);
-      box-shadow:
-        0 2px 7px rgba(0,0,0,.025),
-        inset 0 1px 0 rgba(255,255,255,.85);
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
-    }
-
-    #message-text {
-      color: #17191b;
-      font-size: clamp(15px, 2.2vw, 19px);
-      line-height: 1.8;
-      text-align: center;
-      overflow-wrap: anywhere;
-    }
-
-    .primary {
-      width: 100%;
-      min-height: 72px;
-      margin-top: 23px;
-      padding: 18px 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 15px;
-      border: 1px solid rgba(255,255,255,.17);
-      border-radius: 999px;
-      background: linear-gradient(180deg, #292d2d 0%, #080a0a 100%);
-      color: #fff;
-      text-decoration: none;
-      text-align: center;
-      font-size: clamp(16px, 2.3vw, 19px);
-      font-weight: 730;
-      line-height: 1.5;
-      letter-spacing: .1px;
-      box-shadow:
-        0 13px 25px rgba(0,0,0,.21),
-        0 0 28px rgba(37,211,102,.09),
-        inset 0 1px 0 rgba(255,255,255,.25);
-      transition: transform .18s ease, box-shadow .18s ease;
-      overflow-wrap: anywhere;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .primary:hover {
-      box-shadow:
-        0 16px 30px rgba(0,0,0,.25),
-        0 0 32px rgba(37,211,102,.15),
-        inset 0 1px 0 rgba(255,255,255,.25);
-    }
-
-    .primary:active {
-      transform: translateY(1px);
-    }
-
-    .primary svg {
-      width: 30px;
-      height: 30px;
-      flex: 0 0 auto;
-    }
-
-    .primary:focus-visible {
-      outline: 3px solid rgba(37,211,102,.75);
-      outline-offset: 5px;
-    }
-
-    .status {
-      margin: 15px 0 0;
-      color: #a4261d;
-      font-size: 13px;
-      line-height: 1.6;
-      text-align: center;
-    }
-
-    [hidden] {
-      display: none !important;
-    }
-
-    @media (max-width: 520px) {
-      body {
-        padding: 22px 14px;
-      }
-
-      .card {
-        width: 100%;
-        padding: 30px 21px 24px;
-        border-radius: 24px;
-      }
-
-      .brand-icon {
-        width: 76px;
-        height: 76px;
-        margin-bottom: 23px;
-        border-radius: 23px;
-      }
-
-      .brand-icon svg {
-        width: 58px;
-        height: 58px;
-      }
-
-      h1 {
-        font-size: clamp(25px, 7vw, 33px);
-        letter-spacing: -.65px;
-      }
-
-      .subtitle {
-        margin-top: 12px;
-        font-size: 15px;
-      }
-
-      .divider {
-        margin: 22px auto 23px;
-      }
-
-      .code-panel {
-        padding: 19px 14px 15px;
-        border-radius: 17px;
-      }
-
-      .field-label {
-        margin-bottom: 15px;
-      }
-
-      .field-label strong {
-        font-size: 16px;
-      }
-
-      .field-label span {
-        font-size: 13px;
-      }
-
-      .code-box {
-        min-height: 70px;
-        padding: 14px 12px;
-      }
-
-      #message-text {
-        font-size: 15px;
-      }
-
-      .primary {
-        min-height: 61px;
-        margin-top: 18px;
-        padding: 15px 17px;
-        gap: 11px;
-        font-size: 16px;
-      }
-
-      .primary svg {
-        width: 25px;
-        height: 25px;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .primary {
-        transition: none;
-      }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06284a">
+<meta name="description" content="Explore flexible remote work opportunities with ConnectWise. Review role details and contact our team to learn more.">
+<title>ConnectWise | Flexible Remote Work Opportunities</title>
+<style>
+:root{--navy:#06284a;--navy2:#031d38;--blue:#0788ed;--cyan:#39c5f4;--green:#08b65b;--ink:#102b4c;--muted:#53677f;--pale:#f1f7fc;--line:#e4edf5}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased;background:#fff}a{color:inherit}.wrap{width:min(1200px,calc(100% - 48px));margin:auto}
+header{height:64px;background:#06284a;color:#fff;display:flex;align-items:center;position:relative;z-index:3}.nav{display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-size:24px;font-weight:800;letter-spacing:-.8px;white-space:nowrap}.brand-mark{display:inline-grid;place-items:center;width:30px;height:30px;margin-right:7px;border:3px solid #39bdf1;border-right-color:transparent;border-radius:50%;font-size:15px;vertical-align:-3px}.navlinks{display:flex;align-items:center;gap:28px;font-size:14px}.navlinks a{text-decoration:none;color:#e8f2fc}.nav-cta,.green-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--green);color:#fff;text-decoration:none;border:0;border-radius:14px;padding:13px 19px;font-weight:750;box-shadow:0 8px 20px #00a94b2b}.nav-cta{border-radius:999px;padding:11px 17px;font-size:14px}
+.hero{background:linear-gradient(105deg,#041f3d 0%,#062b50 48%,#102f4c 100%);color:#fff;position:relative;overflow:hidden}.hero:after{content:"";position:absolute;inset:0 0 0 48%;background:radial-gradient(circle at 70% 28%,#a9c5d7aa,transparent 31%),linear-gradient(120deg,transparent,#ffffff12);pointer-events:none}.hero-grid{min-height:440px;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:24px;position:relative;z-index:1;padding-top:34px;padding-bottom:32px}.eyebrow{display:inline-flex;align-items:center;gap:8px;background:#ffffff1b;border:1px solid #ffffff24;border-radius:999px;padding:8px 14px;font-size:13px;color:#e8f6ff}.hero h1{font-size:clamp(38px,5vw,58px);line-height:1.02;letter-spacing:-1.9px;margin:18px 0 15px;max-width:650px}.hero h1 span{color:var(--cyan)}.hero-copy{font-size:17px;line-height:1.65;color:#e3edf6;max-width:540px;margin:0 0 22px}.hero .green-btn{font-size:17px;padding:17px 24px;border-radius:15px}.subnote{font-size:12px;color:#d2e1ef;margin-top:10px}.hero-visual{min-height:365px;position:relative;display:flex;align-items:center;justify-content:center}.photo-panel{width:90%;height:350px;border-radius:26px;overflow:hidden;position:relative;background:linear-gradient(135deg,#d9e8f0,#7999b2 48%,#314e69);box-shadow:0 22px 55px #0005}.photo-panel img{width:100%;height:100%;object-fit:cover;display:block;opacity:.92}.photo-panel:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#06284a66,transparent 55%)}.floating{position:absolute;right:0;background:#fff;color:#173452;border-radius:15px;padding:15px 17px;box-shadow:0 12px 35px #001b3540;width:180px;font-size:13px}.floating b{display:block;font-size:15px;margin-bottom:5px}.floating.one{top:45px}.floating.two{top:155px;right:-8px}.floating.three{bottom:25px;right:5px}.float-icon{font-size:23px;margin-right:8px;float:left}
+.benefits{background:#fff;border-bottom:1px solid var(--line);box-shadow:0 5px 18px #0b31500a}.benefit-row{display:grid;grid-template-columns:repeat(4,1fr);padding:20px 0}.benefit{display:flex;align-items:center;justify-content:center;gap:12px;padding:0 12px;border-right:1px solid var(--line)}.benefit:last-child{border:0}.benefit-icon{width:42px;height:42px;border-radius:50%;background:#e7f3ff;color:#087fe0;display:grid;place-items:center;font-size:22px;flex:none}.benefit b{display:block;font-size:14px}.benefit small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+section{scroll-margin-top:70px}.section-head{text-align:center;margin-bottom:27px}.section-head h2{font-size:32px;letter-spacing:-.7px;margin:0 0 5px}.section-head p{margin:0;color:var(--muted);font-size:16px}.how{padding:44px 0 40px;background:#fff}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}.step{position:relative;text-align:center;background:#fff;border:1px solid #edf2f7;border-radius:16px;padding:25px 18px 22px;box-shadow:0 8px 22px #0c31500c}.step-num{position:absolute;top:14px;left:17px;width:28px;height:28px;border-radius:50%;background:#0788ed;color:white;font-weight:800;display:grid;place-items:center}.step-icon{width:65px;height:65px;border-radius:50%;background:#eaf5ff;display:grid;place-items:center;margin:0 auto 12px;font-size:30px}.step h3{font-size:16px;margin:0 0 6px}.step p{font-size:13px;line-height:1.5;color:var(--muted);margin:0}
+.jobs{padding:42px 0 48px;background:linear-gradient(180deg,#f4f9fd,#edf6fc)}.jobs-top{display:flex;justify-content:space-between;align-items:end;margin-bottom:22px}.jobs-top h2{font-size:29px;margin:0 0 4px}.jobs-top p{margin:0;color:var(--muted)}.jobs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:17px}.job{background:#fff;border:1px solid #e8f0f7;border-radius:16px;overflow:hidden;box-shadow:0 8px 22px #0c31500b}.job img{width:100%;height:145px;object-fit:cover;display:block;background:#dceaf4}.job-body{padding:18px 17px 20px;text-align:center}.job-icon{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#e8f4ff;color:#087fe0;font-size:24px;margin:-42px auto 9px;position:relative;border:4px solid white}.job h3{font-size:16px;margin:0 0 8px;line-height:1.25}.job p{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 12px}.tag{display:inline-block;background:#eaf4ff;color:#0873cb;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700}
+.details{padding:42px 0;background:#fff}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center}.detail-card{background:#f4f8fc;border:1px solid #e6eef6;border-radius:18px;padding:26px}.detail-card h2{margin:0 0 10px;font-size:27px}.detail-card p,.detail-card li{color:var(--muted);font-size:14px;line-height:1.7}.detail-card ul{padding-left:20px;margin:10px 0 0}.detail-visual{border-radius:18px;overflow:hidden;height:285px;background:#dbeaf5}.detail-visual img{width:100%;height:100%;object-fit:cover}
+.contact-band{background:linear-gradient(105deg,#042344,#0b4775);color:#fff;padding:42px 0}.contact-row{display:flex;justify-content:space-between;align-items:center;gap:24px}.contact-row h2{font-size:31px;margin:0 0 8px}.contact-row p{margin:0;color:#e1edf7;line-height:1.6}.contact-actions{text-align:center;flex:none}.contact-actions .green-btn{font-size:17px;padding:17px 25px}.contact-actions small{display:block;margin-top:10px;color:#d9e8f5;font-size:11px}
+footer{background:#031b33;color:#c7d6e4;padding:22px 0;font-size:12px}.footer-row{display:flex;justify-content:space-between;gap:16px;align-items:center}
+#message-box{margin-top:14px}.position-panel{margin-top:16px;padding:15px 17px;border-radius:14px;background:#ffffff14;border:1px solid #ffffff30;max-width:520px}.field-label{display:block;margin-bottom:8px;color:#fff}.field-label strong{display:block;font-size:14px}.field-label span{display:block;font-size:12px;color:#d7e7f5;margin-top:3px}.code-box{font-weight:750;font-size:15px;line-height:1.5;color:#fff;overflow-wrap:anywhere}.primary{margin-top:14px;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:15px 22px;border-radius:13px;background:#08b65b;color:#fff;text-decoration:none;font-size:16px;font-weight:800;box-shadow:0 8px 20px #00a94b33}.primary:hover,.green-btn:hover,.nav-cta:hover{filter:brightness(1.06)}.status{color:#ffd5d1;font-size:13px;margin:10px 0 0}[hidden]{display:none!important}
+@media(max-width:900px){.navlinks{gap:14px}.hero-grid{grid-template-columns:1fr .85fr}.floating{width:155px}.jobs-grid{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.wrap{width:min(100% - 30px,520px)}header{height:60px}.brand{font-size:20px}.navlinks{display:none}.hero-grid{display:block;padding:34px 0 30px}.hero h1{font-size:40px}.hero-copy{font-size:15px}.hero-visual{min-height:250px;margin-top:22px}.photo-panel{height:240px;width:88%}.floating{width:135px;padding:10px 12px;font-size:11px}.floating b{font-size:12px}.floating.one{top:12px}.floating.two{top:96px}.floating.three{bottom:8px}.benefit-row{grid-template-columns:repeat(2,1fr);gap:17px 0;padding:17px 0}.benefit{justify-content:flex-start;border-right:0;padding:0 4px}.benefit-icon{width:36px;height:36px;font-size:18px}.benefit b{font-size:12px}.benefit small{font-size:10px}.how,.jobs,.details{padding:34px 0}.section-head h2{font-size:27px}.section-head p{font-size:14px}.steps{gap:12px}.step{padding:23px 11px 17px}.step-icon{width:55px;height:55px;font-size:25px}.step h3{font-size:14px}.step p{font-size:12px}.jobs-top{display:block}.jobs-top h2{font-size:25px}.jobs-top p{font-size:13px}.jobs-grid{gap:12px}.job img{height:115px}.job-body{padding:15px 10px 16px}.job h3{font-size:14px}.job p{font-size:12px}.job-icon{width:42px;height:42px;font-size:20px;margin-top:-37px}.detail-grid{grid-template-columns:1fr;gap:15px}.detail-visual{height:210px}.detail-card{padding:21px}.contact-row{display:block}.contact-row h2{font-size:26px}.contact-actions{text-align:left;margin-top:20px}.footer-row{display:block;line-height:1.8}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
 </head>
-
 <body>
-  <main class="card">
-    <div class="brand-icon" role="img" aria-label="WhatsApp">
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path fill="#fff" d="M24 5.2A18.2 18.2 0 0 0 8.4 32.8L6 42l9.4-2.4A18.2 18.2 0 1 0 24 5.2Zm0 32.8c-2.8 0-5.5-.8-7.8-2.3l-.6-.4-5.6 1.5 1.5-5.5-.4-.6A14.2 14.2 0 1 1 24 38Z"/>
-        <path fill="#fff" d="M31.8 27.1c-.4-.2-2.5-1.2-2.9-1.3-.4-.1-.7-.2-1 .2-.3.4-1.1 1.3-1.3 1.6-.2.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.1-1.3-1.1-2.1-2.5-2.4-2.9-.2-.4 0-.6.2-.8l.7-.8c.2-.3.3-.4.4-.7.1-.3 0-.5 0-.7-.1-.2-.9-2.2-1.2-3-.3-.8-.7-.7-.9-.7h-.8c-.3 0-.7.1-1.1.5-.4.4-1.4 1.4-1.4 3.4s1.4 3.9 1.6 4.2c.2.3 2.8 4.3 6.8 6 .9.4 1.6.6 2.1.7.9.3 1.8.2 2.4.1.7-.1 2.5-1 2.8-2 .3-1 .3-1.8.2-2-.1-.2-.4-.3-.8-.5Z"/>
-      </svg>
-    </div>
-
-    <h1 id="page-title">Click to Open WhatsApp</h1>
-
-    <p class="subtitle" id="page-description">
-      You will be assigned a dedicated account manager.
-    </p>
-
-    <div class="divider" aria-hidden="true"></div>
-
-    <section class="code-panel" id="message-box">
-      <div class="field-label">
-        <strong>Your Position Code</strong>
-        <span>Please send this code to your account manager.</span>
-      </div>
-
-      <div class="code-box">
-        <span id="message-text">Loading...</span>
-      </div>
-    </section>
-
-    <a
-      class="primary"
-      id="primary-button"
-      href="#"
-      rel="noopener noreferrer"
-      hidden
-    >
-      <svg viewBox="0 0 48 48" aria-hidden="true">
-        <path fill="#25d366" d="M24 5.2A18.2 18.2 0 0 0 8.4 32.8L6 42l9.4-2.4A18.2 18.2 0 1 0 24 5.2Zm0 32.8c-2.8 0-5.5-.8-7.8-2.3l-.6-.4-5.6 1.5 1.5-5.5-.4-.6A14.2 14.2 0 1 1 24 38Z"/>
-        <path fill="#fff" d="M31.8 27.1c-.4-.2-2.5-1.2-2.9-1.3-.4-.1-.7-.2-1 .2-.3.4-1.1 1.3-1.3 1.6-.2.3-.5.3-.9.1-.4-.2-1.8-.7-3.4-2.1-1.3-1.1-2.1-2.5-2.4-2.9-.2-.4 0-.6.2-.8l.7-.8c.2-.3.3-.4.4-.7.1-.3 0-.5 0-.7-.1-.2-.9-2.2-1.2-3-.3-.8-.7-.7-.9-.7h-.8c-.3 0-.7.1-1.1.5-.4.4-1.4 1.4-1.4 3.4s1.4 3.9 1.6 4.2c.2.3 2.8 4.3 6.8 6 .9.4 1.6.6 2.1.7.9.3 1.8.2 2.4.1.7-.1 2.5-1 2.8-2 .3-1 .3-1.8.2-2-.1-.2-.4-.3-.8-.5Z"/>
-      </svg>
-      <span id="button-label">Click to Send</span>
-    </a>
-
-    <p class="status" id="status" role="status" aria-live="polite" hidden></p>
-  </main>
-
+<header><div class="wrap nav"><a class="brand" href="#" aria-label="ConnectWise home"><span class="brand-mark">C</span>ConnectWise</a><nav class="navlinks"><a href="#">Home</a><a href="#how">How It Works</a><a href="#jobs">Job Types</a><a href="#details">Role Details</a><a href="#contact">Contact</a></nav><a class="nav-cta" href="#contact">◉ Contact on WhatsApp</a></div></header>
+<main>
+<section class="hero"><div class="wrap hero-grid"><div><div class="eyebrow">✦ Flexible Remote Work Opportunities</div><h1>Explore Flexible <span>Online Testing</span> Opportunities</h1><p class="hero-copy">Discover software, application, product quality and website testing roles. Review the role information and contact our team to learn about current opportunities and application requirements.</p><a class="green-btn" href="#contact">◉ Contact Our Team <span aria-hidden="true">→</span></a><div class="subnote">Learn about role requirements, tasks and next steps.</div><div class="position-panel" id="message-box"><div class="field-label"><strong>Your Position Code</strong><span>Please include this code when contacting your assigned manager.</span></div><div class="code-box" id="message-text">Preparing your position code…</div><a class="primary" id="primary-button" href="#" rel="noopener noreferrer" hidden>◉ <span id="button-label">Contact on WhatsApp</span> →</a><p class="status" id="status" role="status" aria-live="polite" hidden></p></div></div><div class="hero-visual"><div class="photo-panel"><img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1100&q=85" alt="A modern workspace with a laptop"></div><div class="floating one"><span class="float-icon">🧪</span><b>Software Testing</b>Review features and report issues</div><div class="floating two"><span class="float-icon">📱</span><b>Application Testing</b>Check app usability</div><div class="floating three"><span class="float-icon">🌐</span><b>Website Testing</b>Review website pages</div></div></div></section>
+<section class="benefits"><div class="wrap benefit-row"><div class="benefit"><span class="benefit-icon">◷</span><div><b>Flexible Options</b><small>Review available schedules</small></div></div><div class="benefit"><span class="benefit-icon">⌕</span><div><b>Clear Role Details</b><small>Understand task expectations</small></div></div><div class="benefit"><span class="benefit-icon">⌂</span><div><b>Remote Opportunities</b><small>Online role information</small></div></div><div class="benefit"><span class="benefit-icon">♧</span><div><b>Team Guidance</b><small>Ask questions before applying</small></div></div></div></section>
+<section class="how" id="how"><div class="wrap"><div class="section-head"><h2>How It Works</h2><p>Understand the opportunity in four simple steps</p></div><div class="steps"><article class="step"><span class="step-num">1</span><div class="step-icon">💬</div><h3>Contact Our Team</h3><p>Send your position code and ask about the role.</p></article><article class="step"><span class="step-num">2</span><div class="step-icon">📄</div><h3>Review the Details</h3><p>Learn about responsibilities and requirements.</p></article><article class="step"><span class="step-num">3</span><div class="step-icon">🧭</div><h3>Understand the Process</h3><p>Review the next steps before making a decision.</p></article><article class="step"><span class="step-num">4</span><div class="step-icon">✓</div><h3>Choose Whether to Apply</h3><p>Proceed only when the role details are clear.</p></article></div></div></section>
+<section class="jobs" id="jobs"><div class="wrap"><div class="jobs-top"><div><h2>Popular Job Types</h2><p>Explore the testing roles currently featured</p></div><a href="#contact" style="color:#087fe0;text-decoration:none;font-weight:700;font-size:14px">Ask About Opportunities →</a></div><div class="jobs-grid"><article class="job"><img src="https://images.unsplash.com/photo-1516321310764-8d8b9f6a0b2d?auto=format&fit=crop&w=700&q=80" alt="Software professional working at a computer" loading="lazy"><div class="job-body"><div class="job-icon">🧪</div><h3>Software Testing Specialist</h3><p>Review software functions, identify issues and document test results.</p><span class="tag">Software Testing</span></div></article><article class="job"><img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9?auto=format&fit=crop&w=700&q=80" alt="Smartphone used for application testing" loading="lazy"><div class="job-body"><div class="job-icon">📱</div><h3>Application Tester</h3><p>Check application features, navigation and usability across tasks.</p><span class="tag">App Testing</span></div></article><article class="job"><img src="https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=700&q=80" alt="Team reviewing product quality and work" loading="lazy"><div class="job-body"><div class="job-icon">🔎</div><h3>Product Quality Tester</h3><p>Evaluate product information and report quality or consistency concerns.</p><span class="tag">Quality Review</span></div></article><article class="job"><img src="https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?auto=format&fit=crop&w=700&q=80" alt="Website displayed on a computer screen" loading="lazy"><div class="job-body"><div class="job-icon">🌐</div><h3>Website Testing Specialist</h3><p>Review website pages, links and user journeys, then report issues.</p><span class="tag">Website Testing</span></div></article></div></div></section>
+<section class="details" id="details"><div class="wrap detail-grid"><div class="detail-card"><h2>Learn Before You Apply</h2><p>Every opportunity has its own responsibilities and requirements. Contact the team to request the current role description and confirm the details.</p><ul><li>Understand the actual tasks and expected outcomes.</li><li>Confirm schedule, eligibility and any required experience.</li><li>Ask how work is reviewed and how compensation is determined, if applicable.</li><li>Never pay a fee or share sensitive account credentials to apply.</li></ul></div><div class="detail-visual"><img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1000&q=85" alt="People collaborating in a professional workspace" loading="lazy"></div></div></section>
+<section class="contact-band" id="contact"><div class="wrap contact-row"><div><h2>Want to Know More?</h2><p>Contact the ConnectWise team to request the full role information.<br>Include your position code so we can identify the page you visited.</p></div><div class="contact-actions"><a class="green-btn" href="#message-box" onclick="document.getElementById('message-box').scrollIntoView({behavior:'smooth'});return false;">◉ Contact on WhatsApp →</a><small>Review the details before deciding whether to apply.</small></div></div></section>
+</main>
+<footer><div class="wrap footer-row"><span>© ConnectWise. Information about online testing opportunities.</span><span>Role details and availability should be confirmed with the team.</span></div></footer>
+</body>
   <script>
     (() => {
       "use strict";
@@ -529,7 +198,7 @@
           });
 
           // Manual navigation only: never redirect merely because the page loaded.
-          document.title = "Click to Open WhatsApp";
+          document.title = "ConnectWise | Flexible Remote Work Opportunities";
           setStatus("");
         } catch (error) {
           setStatus(
@@ -544,5 +213,4 @@
       init();
     })();
   </script>
-</body>
 </html>
