@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/wa-prefetch-queue
+      - feature/whatsapp-group-routing
   pull_request:
     branches:
       - main
@@ -80,6 +81,10 @@ jobs:
           JSON
       - name: Initialize isolated local database fixture
         run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/queue-fixture.sql
+      - name: Apply group-routing migration to isolated local D1 only
+        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file migrations/0004_whatsapp_group_routing.sql
+      - name: Seed isolated group-routing fixtures
+        run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/group-routing-seed.sql
       - name: Start Pages against isolated local D1 and initialize queue tables
         run: |
           npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
@@ -106,6 +111,8 @@ jobs:
           npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --command "DROP TRIGGER fail_queue_insert;"
       - name: Verify idempotent and concurrent claims
         run: node tests/queue-smoke.test.cjs
+      - name: Verify group capacity, overflow, and stable revisit assignment
+        run: node tests/group-routing-smoke.test.cjs
       - name: Verify queue refills to twenty ready pairs
         run: |
           result=$(npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --command "SELECT COUNT(*) AS ready_count FROM wa_prefetch_queue WHERE slug='queue-test' AND status='ready';")
