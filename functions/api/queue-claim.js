@@ -155,6 +155,20 @@ export async function onRequestPost({ request, env, waitUntil }) {
   if (userAgent.includes("meta-externalads/") || userAgent.includes("meta-externalagent/")) {
     return new Response(null, { status: 204, headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Robots-Tag": "noindex, nofollow" } });
   }
+  // This endpoint consumes a pre-assigned customer/phone pair. Accept
+  // browser JSON requests only from this exact origin to reduce cross-site
+  // request abuse; the internal /api/whatsapp-go call supplies the same Origin.
+  const origin = request.headers.get("Origin") || "";
+  let requestOrigin = "";
+  try { requestOrigin = new URL(request.url).origin; } catch {}
+  if (!origin || origin !== requestOrigin) {
+    return json({ error:"Origin not allowed" },403);
+  }
+  const contentType = (request.headers.get("Content-Type") || "").toLowerCase();
+  if (!contentType.includes("application/json")) {
+    return json({ error:"Content-Type must be application/json" },415);
+  }
+
   const started = Date.now();
   let body;
   try { body = await request.json(); } catch { return json({ error:"Invalid JSON" },400); }
