@@ -700,15 +700,13 @@ img{max-width:100%}
           // All visible WhatsApp CTAs use the same assigned phone + prefilled message.
           // The pair is claimed once for this browser session and reused across buttons.
           void track("page_view");
-          let routing = false;
           const whatsappButtons = [...document.querySelectorAll('[data-wa-cta], #hero-whatsapp-button')];
           whatsappButtons.forEach((button) => {
             button.href = target;
             button.addEventListener("click", (event) => {
               event.preventDefault();
-              if (routing) return;
-              routing = true;
-              button.style.opacity = ".7";
+              // Do not lock the other CTAs: every click records an event and
+              // reuses this page session's already-assigned phone/code pair.
               void track("whatsapp_click", button.dataset.waCta || "hero");
               window.location.assign(target);
             });
