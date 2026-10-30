@@ -32,8 +32,7 @@ export async function onRequest(context) {
     const hasFetchMetadata = Boolean(mode || dest || user);
     const isNotTopLevelNavigation =
       (mode && mode !== "navigate") ||
-      (dest && dest !== "document") ||
-      (hasFetchMetadata && user !== "?1" && mode !== "navigate");
+      (dest && dest !== "document");
     // Some Facebook/Messenger in-app browsers omit Sec-Fetch-* headers.
     // Missing metadata alone is not proof of a crawler; crawler user agents
     // are filtered above. Reject only explicit non-document/fetch requests.
