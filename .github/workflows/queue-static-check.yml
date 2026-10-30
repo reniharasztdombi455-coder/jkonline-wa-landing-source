@@ -21,7 +21,7 @@ jobs:
       - name: Check Cloudflare function syntax
         run: |
           set -euo pipefail
-          for file in functions/api/queue-claim.js functions/api/assign-wa.js functions/api/track.js; do
+          for file in functions/_middleware.js functions/api/whatsapp-go.js functions/api/queue-claim.js functions/api/assign-wa.js functions/api/track.js; do
             node --input-type=module --check < "$file"
           done
       - name: Check landing page JavaScript syntax
@@ -47,11 +47,11 @@ jobs:
             ["queue refill lock exists", api.includes("wa_queue_refill_locks")],
             ["claim uses compare-and-set", api.includes("WHERE id=? AND status='ready'")],
             ["landing page uses queue API", landing.includes("/api/queue-claim") && page.includes("/api/queue-claim")],
-            ["event contract matches manager schema", track.includes('"page_view", "whatsapp_click", "whatsapp_handoff"') && !track.includes("whatsapp_open_attempt")],
+            ["event contract matches production D1 constraint", track.includes('["page_view", "whatsapp_click"]') && !track.includes("whatsapp_handoff") && !track.includes("whatsapp_open_attempt")],
             ["main landing page requires an explicit click", landing.includes('addEventListener("click"') && landing.includes('track("whatsapp_click", "primary")') && !landing.includes("window.setTimeout")],
             ["go page requires an explicit click", page.includes('track("whatsapp_click"') && !page.includes("location.replace(target)")],
-            ["direct redirect records landing page view", redirect.includes('recordEvent("page_view")')],
-            ["direct redirect records handoff once", redirect.includes('recordEvent("whatsapp_handoff")') && !redirect.includes('recordEvent("whatsapp_click")') && !api.includes("INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')")]
+            ["legacy automatic redirect endpoint is disabled", redirect.includes("status: 410") && !redirect.includes("Location")],
+            ["middleware does not invoke automatic redirect", !fs.readFileSync("functions/_middleware.js", "utf8").includes("whatsappGo(context)") && fs.readFileSync("functions/_middleware.js", "utf8").includes("return context.next()")]
           ];
           for (const [name, ok] of checks) {
             console.log((ok ? "PASS " : "FAIL ") + name);

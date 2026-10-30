@@ -1,5 +1,3 @@
-import { onRequestGet as whatsappGo } from "./api/whatsapp-go.js";
-
 // Keep campaign URLs as direct server-side WhatsApp redirects; block link-preview crawlers before any side effects.
 function isCrawlerRequest(request) {
   const ua = (request.headers.get("User-Agent") || "").toLowerCase();
@@ -54,10 +52,10 @@ export async function onRequest(context) {
         headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
       });
     }
-    // Run the existing WhatsApp allocation/redirect handler in this request,
-    // avoiding an extra browser-facing 302 through /api/whatsapp-go.
-    // Keep the crawler and top-level-navigation checks above this call.
-    return whatsappGo(context);
+    // Do not claim a number or redirect from the landing-page request.
+    // The static landing page now claims its pair through /api/queue-claim
+    // and waits for the visitor to click the WhatsApp button.
+    return context.next();
   }
   return context.next();
 }

@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env }) {
   try { body = await request.json(); }
   catch { return Response.json({ error: "Invalid JSON" }, { status: 400 }); }
   const eventType = clean(body.event_type, 30);
-  if (!["page_view", "whatsapp_click", "whatsapp_handoff"].includes(eventType)) return Response.json({ error: "Invalid event type" }, { status: 400 });
+  if (!["page_view", "whatsapp_click"].includes(eventType)) return Response.json({ error: "Invalid event type" }, { status: 400 });
   const slug = clean(body.slug, 80);
   const sessionToken = clean(body.session_token, 80);
   if (!slug || !/^[A-Za-z0-9_-]{1,80}$/.test(slug)) return Response.json({ error: "Invalid link ID" }, { status: 400 });
@@ -18,7 +18,7 @@ export async function onRequestPost({ request, env }) {
     const session = await env.DB.prepare("SELECT customer_code FROM customer_code_sessions WHERE slug = ? AND session_token = ? LIMIT 1").bind(slug, sessionToken).first();
     if (!session?.customer_code) return Response.json({ error: "Customer code session not found; event was not counted." }, { status: 409 });
     const customerCode = session.customer_code;
-    const counterColumn = eventType === "page_view" ? "page_views" : eventType === "whatsapp_click" ? "whatsapp_clicks" : null;
+    const counterColumn = eventType === "page_view" ? "page_views" : "whatsapp_clicks";
     // D1 batch is transactional: ledger, event row and counter either all commit or all roll back.
     // SQLite changes() passes the ledger INSERT result to the next statement, preventing duplicates.
     const results = await env.DB.batch([
