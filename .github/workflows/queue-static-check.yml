@@ -82,7 +82,11 @@ jobs:
         run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/queue-fixture.sql
       - name: Start Pages against isolated local D1 and initialize queue tables
         run: |
-          npx wrangler pages dev . --config wrangler.jsonc --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
+          # Pages Dev only auto-discovers the standard config filename. Temporarily move
+          # the production wrangler.toml out of the way so it loads the isolated
+          # local-only wrangler.jsonc created above. This affects only the CI workspace.
+          mv wrangler.toml wrangler.production.toml.ci-backup
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
           echo $! > /tmp/pages-dev.pid
           ready=0
           for i in $(seq 1 40); do
