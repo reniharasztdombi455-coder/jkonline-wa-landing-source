@@ -193,16 +193,27 @@ export async function onRequestPost({ request, env, waitUntil }) {
           ON CONFLICT(slug) DO UPDATE SET last_number=last_number+1
           RETURNING last_number
         `).bind(slug).first();
-        customerCode = prefix + "/-" + Number(counter?.last_number || 0);
+        const generatedCode = prefix + "/-" + Number(counter?.last_number || 0);
         if (!Number(counter?.last_number || 0)) {
           return json({error:"无法生成客户编号，请稍后重试。"},500);
         }
 
+        // INSERT OR IGNORE makes simultaneous first visits with the same token
+        // converge on one session instead of failing on the unique constraint.
         await env.DB.prepare(`
-          INSERT INTO customer_code_sessions(slug,session_token,customer_code,source,agent)
+          INSERT OR IGNORE INTO customer_code_sessions(slug,session_token,customer_code,source,agent)
           VALUES(?,?,?,?,?)
-        `).bind(slug,token,customerCode,link.source||"direct",link.agent||"unknown").run();
+        `).bind(slug,token,generatedCode,link.source||"direct",link.agent||"unknown").run();
+        const savedSession = await env.DB.prepare(`
+          SELECT customer_code FROM customer_code_sessions
+          WHERE slug=? AND session_token=? LIMIT 1
+        `).bind(slug,token).first();
+        customerCode = String(savedSession?.customer_code || generatedCode);
+      }
 
+      // Also retry group allocation for a returning session that previously
+      // had no available group. Existing assignments remain unchanged.
+      if (!group) {
         const groups = await env.DB.prepare(`
           SELECT id FROM wa_groups WHERE enabled=1
           ORDER BY sort_order,id
