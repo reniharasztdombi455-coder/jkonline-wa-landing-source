@@ -31,16 +31,14 @@ async function reserveOne(DB, link, prefix) {
   for (let offset = 0; offset < 1000 && !reserved; offset++) {
     const cycle = baseCycle + offset;
     const result = await DB.prepare(`
-      INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
-      SELECT ?, ?, n.id, ?
+      SELECT n.id AS wa_number_id
       FROM wa_numbers n
       WHERE n.enabled=1
         AND (SELECT COUNT(*) FROM wa_assignments a
              WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
       ORDER BY n.sort_order,n.id LIMIT 1
-      RETURNING wa_number_id,cycle
-    `).bind(link.slug, code, cycle, cycle).first();
-    if (result) reserved = { wa_number_id:Number(result.wa_number_id), cycle:Number(result.cycle) };
+    `).bind(cycle).first();
+    if (result) reserved = { wa_number_id:Number(result.wa_number_id), cycle };
   }
   if (!reserved) return false;
 
