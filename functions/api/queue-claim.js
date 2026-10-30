@@ -19,12 +19,12 @@ const schema = [
   )`,
   `CREATE TABLE IF NOT EXISTS customer_code_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, session_token TEXT NOT NULL,
-    customer_code TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'direct',
+    customer_code TEXT NOT NULL UNIQUE, source TEXT NOT NULL DEFAULT 'direct',
     agent TEXT NOT NULL DEFAULT 'unknown',
     first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     last_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     page_views INTEGER NOT NULL DEFAULT 0, whatsapp_clicks INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(slug, session_token), UNIQUE(slug, customer_code)
+    UNIQUE(slug, session_token)
   )`,
   `CREATE TABLE IF NOT EXISTS wa_numbers (
     id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL, phone TEXT NOT NULL,
@@ -41,7 +41,7 @@ const schema = [
     id INTEGER PRIMARY KEY CHECK(id=1), cycle INTEGER NOT NULL DEFAULT 1
   )`,
   `CREATE TABLE IF NOT EXISTS wa_prefetch_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL UNIQUE,
     wa_number_id INTEGER NOT NULL, cycle INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ready',
     claimed_session_token TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     claimed_at TEXT, UNIQUE(slug, customer_code)
