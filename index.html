@@ -779,10 +779,11 @@ src="https://www.facebook.com/tr?id=39511936521782878&ev=PageView&noscript=1"
           const whatsappButtons = [...document.querySelectorAll('[data-wa-cta], #hero-whatsapp-button')];
           whatsappButtons.forEach((button) => {
             button.href = target;
-            button.addEventListener("click", (event) => {
+            button.addEventListener("click", async (event) => {
               event.preventDefault();
-              // Keep the existing first-party click record unchanged.
-              void track("whatsapp_click", button.dataset.waCta || "hero");
+              // Start the existing first-party click record and wait for its response,
+              // but never keep the visitor on the landing page for more than 1 second.
+              const clickTracking = track("whatsapp_click", button.dataset.waCta || "hero");
 
               // Record the WhatsApp CTA click as a Meta standard Contact event.
               // This represents a click/attempt to contact, not a confirmed message.
@@ -790,14 +791,20 @@ src="https://www.facebook.com/tr?id=39511936521782878&ev=PageView&noscript=1"
                 window.fbq("track", "Contact");
               }
 
-              // Give the Pixel request a brief opportunity to leave the page before
-              // navigating. The bounded delay prevents a blocked Pixel from trapping
-              // the visitor and does not change the destination or assigned number.
-              window.setTimeout(() => {
-                // Mode one opens WhatsApp with the saved message prefilled.
-                // Mode two opens the same assigned number with an empty message box.
-                window.location.assign(target);
-              }, 300);
+              // Navigate as soon as first-party tracking responds, or after 1 second
+              // if the request is still pending. A failed response must not block WhatsApp.
+              let trackingTimeout;
+              await Promise.race([
+                clickTracking,
+                new Promise((resolve) => {
+                  trackingTimeout = window.setTimeout(resolve, 1000);
+                })
+              ]);
+              window.clearTimeout(trackingTimeout);
+
+              // Mode one opens WhatsApp with the saved message prefilled.
+              // Mode two opens the same assigned number with an empty message box.
+              window.location.assign(target);
             });
           });
 
