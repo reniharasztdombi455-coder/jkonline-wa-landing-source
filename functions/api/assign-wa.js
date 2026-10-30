@@ -23,24 +23,8 @@ export async function onRequestPost({ request, env }) {
     perf.sessionLookupMs = Date.now() - t;
     if (!session?.customer_code) return json({ error: "Customer code session not found" }, 409);
 
-    await Promise.all([
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_numbers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL, phone TEXT NOT NULL,
-        max_per_cycle INTEGER NOT NULL DEFAULT 3, sort_order INTEGER NOT NULL DEFAULT 0,
-        enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-      )`).run(),
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_assignments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL,
-        wa_number_id INTEGER NOT NULL, cycle INTEGER NOT NULL, assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-        UNIQUE(slug, customer_code)
-      )`).run(),
-      env.DB.prepare(`CREATE TABLE IF NOT EXISTS wa_route_state (
-        id INTEGER PRIMARY KEY CHECK(id=1), cycle INTEGER NOT NULL DEFAULT 1
-      )`).run()
-    ]);
-    t = Date.now();
-    await env.DB.prepare("INSERT OR IGNORE INTO wa_route_state(id,cycle) VALUES(1,1)").run();
-    const prior = await env.DB.prepare(`SELECT a.wa_number_id,a.cycle,n.phone,n.label
+    // Number-pool, assignment, and route-state tables are provisioned by migrations.
+        const prior = await env.DB.prepare(`SELECT a.wa_number_id,a.cycle,n.phone,n.label
       FROM wa_assignments a JOIN wa_numbers n ON n.id=a.wa_number_id
       WHERE a.slug=? AND a.customer_code=? LIMIT 1`).bind(slug, session.customer_code).first();
     perf.priorAssignmentLookupMs = Date.now() - t;
