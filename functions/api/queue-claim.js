@@ -192,7 +192,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
           INSERT INTO landing_code_counters(slug,last_number) VALUES(?,1)
           ON CONFLICT(slug) DO UPDATE SET last_number=last_number+1
           RETURNING last_number
-        `).bind(slug).first();
+        `).bind(prefix).first();
         const generatedCode = prefix + "/-" + Number(counter?.last_number || 0);
         if (!Number(counter?.last_number || 0)) {
           return json({error:"无法生成客户编号，请稍后重试。"},500);
