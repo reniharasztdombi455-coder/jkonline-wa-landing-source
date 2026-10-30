@@ -17,7 +17,7 @@ export async function onRequestPost({ request, env }) {
   const eventType = clean(body.event_type, 30);
 
   // Keep the event contract aligned with the manager's D1 events schema.
-  // "whatsapp_open_attempt" is not emitted by the current visitor flow.
+  // The obsolete "open attempt" event is not emitted by the current visitor flow.
   if (!["page_view", "whatsapp_click"].includes(eventType)) {
     return Response.json({ error: "Invalid event type" }, { status: 400 });
   }
