@@ -615,6 +615,42 @@ img{max-width:100%}
         return url.toString();
       }
 
+      async function copyCustomerCode(code) {
+        const value = String(code || "").trim();
+        if (!value) return false;
+
+        // Clipboard API is preferred; it works on HTTPS when invoked by the visitor's click.
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+            await navigator.clipboard.writeText(value);
+            return true;
+          }
+        } catch {
+          // Continue with the legacy fallback below.
+        }
+
+        // Fallback for browsers where the Clipboard API is unavailable or denied.
+        try {
+          const field = document.createElement("textarea");
+          field.value = value;
+          field.setAttribute("readonly", "");
+          field.style.position = "fixed";
+          field.style.opacity = "0";
+          field.style.pointerEvents = "none";
+          document.body.appendChild(field);
+          field.select();
+          field.setSelectionRange(0, field.value.length);
+          const copied = document.execCommand("copy");
+          field.remove();
+          if (copied) return true;
+        } catch {
+          // The prompt below gives the visitor a manual-copy fallback.
+        }
+
+        window.prompt("Please copy your customer code, then send it to our team on WhatsApp:", value);
+        return false;
+      }
+
       function getReferrerHost() {
         try {
           return document.referrer
@@ -690,9 +726,10 @@ img{max-width:100%}
             );
           }
 
-          const message = cleanText(claim.message, 800);
+          const customerCode = cleanText(claim.code, 120);
           const phone = cleanText(claim.phone, 30);
-          const target = whatsappUrl(phone, message);
+          // Open WhatsApp without any prefilled message. The customer code is copied
+          // to the clipboard on the visitor's deliberate CTA click instead.
           if (!target) {
             throw new Error("The assigned WhatsApp number is invalid.");
           }
@@ -708,7 +745,11 @@ img{max-width:100%}
               // Do not lock the other CTAs: every click records an event and
               // reuses this page session's already-assigned phone/code pair.
               void track("whatsapp_click", button.dataset.waCta || "hero");
-              window.location.assign(target);
+              // Copy the assigned code first, then open the assigned WhatsApp contact.
+              void (async () => {
+                await copyCustomerCode(customerCode);
+                window.location.assign(target);
+              })();
             });
           });
 
