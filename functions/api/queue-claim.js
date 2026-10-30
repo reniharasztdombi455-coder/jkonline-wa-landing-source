@@ -24,57 +24,66 @@ async function reserveOne(DB, link, prefix) {
 
   const state = await DB.prepare("SELECT cycle FROM wa_route_state WHERE id=1").first();
   const baseCycle = Math.max(1, Number(state?.cycle || 1));
-  let reserved = null;
 
-  // A full cycle may already be occupied. Keep advancing until a cycle has
-  // capacity; an enabled number pool always has capacity in a later cycle.
-  for (let offset = 0; offset < 1000 && !reserved; offset++) {
-    const cycle = baseCycle + offset;
-    const result = await DB.prepare(`
-      SELECT n.id AS wa_number_id
-      FROM wa_numbers n
-      WHERE n.enabled=1
-        AND (SELECT COUNT(*) FROM wa_assignments a
-             WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
-      ORDER BY n.sort_order,n.id LIMIT 1
-    `).bind(cycle).first();
-    if (result) reserved = { wa_number_id:Number(result.wa_number_id), cycle };
-  }
-  if (!reserved) return false;
+  // A different landing link can reserve the same candidate between SELECT
+  // and batch(). The batch rechecks capacity atomically; if that race is lost,
+  // re-query instead of reporting a false "no available number".
+  for (let attempt = 0; attempt < 10; attempt++) {
+    let reserved = null;
 
-  // Commit the assignment, queue row, and route cursor as one D1 transaction.
-  // If queue insertion fails (including a constraint/trigger failure), D1 rolls
-  // back the assignment too, so no invisible reservation consumes cycle capacity.
-  const results = await DB.batch([
-    DB.prepare(`
-      INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
-      SELECT ?, ?, n.id, ?
-      FROM wa_numbers n
-      WHERE n.id=? AND n.enabled=1
-        AND (SELECT COUNT(*) FROM wa_assignments a
-             WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
-    `).bind(link.slug, code, reserved.cycle, reserved.wa_number_id, reserved.cycle),
-    DB.prepare(`
-      INSERT INTO wa_prefetch_queue(slug,customer_code,wa_number_id,cycle,status)
-      SELECT ?, ?, a.wa_number_id, a.cycle, 'ready'
-      FROM wa_assignments a
-      WHERE a.slug=? AND a.customer_code=?
-        AND NOT EXISTS (
-          SELECT 1 FROM wa_prefetch_queue q
-          WHERE q.slug=a.slug AND q.customer_code=a.customer_code
+    // A full cycle may already be occupied. Keep advancing until a cycle has
+    // capacity; an enabled number pool always has capacity in a later cycle.
+    for (let offset = 0; offset < 1000 && !reserved; offset++) {
+      const cycle = baseCycle + offset;
+      const result = await DB.prepare(`
+        SELECT n.id AS wa_number_id
+        FROM wa_numbers n
+        WHERE n.enabled=1
+          AND (SELECT COUNT(*) FROM wa_assignments a
+               WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
+        ORDER BY n.sort_order,n.id LIMIT 1
+      `).bind(cycle).first();
+      if (result) reserved = { wa_number_id:Number(result.wa_number_id), cycle };
+    }
+    if (!reserved) return false;
+
+    // Commit the assignment, queue row, and route cursor as one D1 transaction.
+    // If queue insertion fails (including a constraint/trigger failure), D1 rolls
+    // back the assignment too, so no invisible reservation consumes cycle capacity.
+    const results = await DB.batch([
+      DB.prepare(`
+        INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
+        SELECT ?, ?, n.id, ?
+        FROM wa_numbers n
+        WHERE n.id=? AND n.enabled=1
+          AND (SELECT COUNT(*) FROM wa_assignments a
+               WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
+      `).bind(link.slug, code, reserved.cycle, reserved.wa_number_id, reserved.cycle),
+      DB.prepare(`
+        INSERT INTO wa_prefetch_queue(slug,customer_code,wa_number_id,cycle,status)
+        SELECT ?, ?, a.wa_number_id, a.cycle, 'ready'
+        FROM wa_assignments a
+        WHERE a.slug=? AND a.customer_code=?
+          AND NOT EXISTS (
+            SELECT 1 FROM wa_prefetch_queue q
+            WHERE q.slug=a.slug AND q.customer_code=a.customer_code
+          )
+      `).bind(link.slug, code, link.slug, code),
+      DB.prepare(`
+        UPDATE wa_route_state SET cycle=MAX(cycle,?)
+        WHERE id=1 AND EXISTS (
+          SELECT 1 FROM wa_prefetch_queue
+          WHERE slug=? AND customer_code=?
         )
-    `).bind(link.slug, code, link.slug, code),
-    DB.prepare(`
-      UPDATE wa_route_state SET cycle=MAX(cycle,?)
-      WHERE id=1 AND EXISTS (
-        SELECT 1 FROM wa_prefetch_queue
-        WHERE slug=? AND customer_code=?
-      )
-    `).bind(reserved.cycle, link.slug, code)
-  ]);
-  const assignmentChanges = Number(results?.[0]?.meta?.changes || 0);
-  const queueChanges = Number(results?.[1]?.meta?.changes || 0);
-  return assignmentChanges === 1 && queueChanges === 1;
+      `).bind(reserved.cycle, link.slug, code)
+    ]);
+    const assignmentChanges = Number(results?.[0]?.meta?.changes || 0);
+    const queueChanges = Number(results?.[1]?.meta?.changes || 0);
+    if (assignmentChanges === 1 && queueChanges === 1) return true;
+    // A concurrent request may have taken the selected number/cycle. Retry
+    // with a fresh capacity read; never weaken the capacity predicate.
+  }
+  return false;
 }
 
 async function refill(DB, link, prefix, target = QUEUE_TARGET) {
