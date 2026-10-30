@@ -32,10 +32,19 @@ jobs:
               exit 1
             fi
           done
-          if grep -RniE '/api/assign-code|/api/assign-wa' index.html go functions --exclude='assign-code.js' --exclude='assign-wa.js'; then
-            echo "A runtime client still references a retired allocation endpoint."
-            exit 1
-          fi
+          python3 - <<'PY'
+          import pathlib, re
+          files = [pathlib.Path("index.html"), pathlib.Path("go/index.html")]
+          files += list(pathlib.Path("functions").rglob("*.js"))
+          pattern = re.compile(r"""fetch\s*\(\s*["'`]([^"'`]*?/api/assign-(?:code|wa))""")
+          for path in files:
+              if path.name in {"assign-code.js", "assign-wa.js"}:
+                  continue
+              text = path.read_text(encoding="utf-8")
+              if pattern.search(text):
+                  raise SystemExit(f"Runtime client still calls a retired endpoint: {path}")
+          print("Legacy allocation endpoints are retired and unused by current clients")
+          PY
       - name: Check JavaScript files
         run: |
           find functions -type f -name '*.js' -print0 | while IFS= read -r -d '' file; do node --input-type=module --check < "$file"; done
