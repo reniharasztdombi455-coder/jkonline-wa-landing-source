@@ -157,9 +157,9 @@ export async function onRequestPost({ request, env, waitUntil }) {
     // Resolve the link and look up an existing session in one D1 round trip.
     // This preserves legacy numeric IDs while avoiding a serial query on revisits.
     const link = await env.DB.prepare(`
-      SELECT l.id,l.slug,l.phone,l.message,l.contact_mode,l.source,l.agent,l.enabled,
+      SELECT l.id,l.slug,l.phone,l.message,l.contact_mode,l.routing_mode,l.source,l.agent,l.enabled,
         s.customer_code AS existing_customer_code,
-        n.phone AS existing_phone,n.label AS existing_label,a.cycle AS existing_cycle
+        n.phone AS existing_phone,n.label AS existing_label,a.cycle AS existing_cycle,\n        ga.group_id AS existing_group_id,g.invite_url AS existing_group_url,g.label AS existing_group_label
       FROM landing_links l
       LEFT JOIN customer_code_sessions s ON s.slug=l.slug AND s.session_token=?
       LEFT JOIN wa_assignments a ON a.slug=s.slug AND a.customer_code=s.customer_code
