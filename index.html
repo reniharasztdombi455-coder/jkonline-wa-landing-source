@@ -779,7 +779,7 @@ src="https://www.facebook.com/tr?id=39511936521782878&ev=PageView&noscript=1"
           const whatsappButtons = [...document.querySelectorAll('[data-wa-cta], #hero-whatsapp-button')];
           whatsappButtons.forEach((button) => {
             button.href = target;
-            button.addEventListener("click", (event) => {
+            button.addEventListener("click", async (event) => {
               event.preventDefault();
               // Start the existing first-party click record and wait for its response,
               // but never keep the visitor on the landing page for more than 1 second.
