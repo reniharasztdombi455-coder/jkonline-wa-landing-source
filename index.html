@@ -720,20 +720,28 @@ img{max-width:100%}
             credentials: "same-origin"
           });
           const claim = await claimResponse.json().catch(() => ({}));
-          if (!claimResponse.ok || !claim.ok || !claim.code || !claim.phone) {
+          if (!claimResponse.ok || !claim.ok || !claim.code) {
             throw new Error(
               claim.error || "Unable to prepare your WhatsApp contact. Please try again."
             );
           }
 
           const customerCode = cleanText(claim.code, 120);
+          const isGroup = claim.destination_type === "group";
           const phone = cleanText(claim.phone, 30);
           const contactMode = claim.contact_mode === "code_only" ? "code_only" : "prefill";
-          // Keep the number assignment identical in both modes. Only the WhatsApp
-          // message behavior and the landing-page code panel change per link.
           const message = contactMode === "prefill" ? cleanText(claim.message, 800) : "";
-          const target = whatsappUrl(phone, message);
-          if (!target) {
+          const target = isGroup
+            ? cleanText(claim.target_url, 500)
+            : whatsappUrl(phone, message);
+          if (isGroup) {
+            let parsedGroupUrl;
+            try { parsedGroupUrl = new URL(target); } catch {}
+            if (!parsedGroupUrl || parsedGroupUrl.protocol !== "https:" ||
+                parsedGroupUrl.hostname !== "chat.whatsapp.com") {
+              throw new Error("The assigned WhatsApp group link is invalid.");
+            }
+          } else if (!target) {
             throw new Error("The assigned WhatsApp number is invalid.");
           }
 
@@ -753,8 +761,8 @@ img{max-width:100%}
             codePanel.classList.remove("visible");
           }
 
-          // All visible WhatsApp CTAs use the same assigned phone and selected message mode.
-          // The pair is claimed once for this browser session and reused across buttons.
+          // All visible CTAs use the same assigned destination for this browser session.
+          // Group mode opens the invitation URL directly; phone mode retains wa.me behavior.
           void track("page_view");
           const whatsappButtons = [...document.querySelectorAll('[data-wa-cta], #hero-whatsapp-button')];
           whatsappButtons.forEach((button) => {
