@@ -17,7 +17,7 @@ async function claim(session_token) {
   assert.equal(first.status,200,JSON.stringify(first.data));
   assert.equal(first.data.destination_type,"group");
   assert.equal(first.data.target_url,"https://chat.whatsapp.com/GROUP_A_TEST");
-  assert.match(first.data.code,/^TEST-AB\\/-\\d+$/);
+  assert.match(first.data.code,/^TEST-AB\/-\d+$/);
 
   const revisit=await claim(token(1));
   assert.equal(revisit.status,200);
