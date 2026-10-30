@@ -40,14 +40,16 @@ jobs:
           const fs = require("node:fs");
           const api = fs.readFileSync("functions/api/queue-claim.js", "utf8");
           const page = fs.readFileSync("go/index.html", "utf8");
+          const landing = fs.readFileSync("index.html", "utf8");
           const track = fs.readFileSync("functions/api/track.js", "utf8");
           const redirect = fs.readFileSync("functions/api/whatsapp-go.js", "utf8");
           const checks = [
             ["queue refill lock exists", api.includes("wa_queue_refill_locks")],
             ["claim uses compare-and-set", api.includes("WHERE id=? AND status='ready'")],
-            ["landing page uses queue API", page.includes("/api/queue-claim")],
+            ["landing page uses queue API", landing.includes("/api/queue-claim") && page.includes("/api/queue-claim")],
             ["event contract matches manager schema", track.includes('"page_view", "whatsapp_click", "whatsapp_handoff"') && !track.includes("whatsapp_open_attempt")],
-            ["automatic redirect uses handoff event", page.includes("whatsapp_handoff") && !page.includes("whatsapp_open_attempt")],
+            ["main landing page requires an explicit click", landing.includes('addEventListener("click"') && landing.includes('track("whatsapp_click", "primary")') && !landing.includes("window.setTimeout")],
+            ["go page requires an explicit click", page.includes('track("whatsapp_click"') && !page.includes("location.replace(target)")],
             ["direct redirect records landing page view", redirect.includes('recordEvent("page_view")')],
             ["direct redirect records handoff once", redirect.includes('recordEvent("whatsapp_handoff")') && !redirect.includes('recordEvent("whatsapp_click")') && !api.includes("INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')")]
           ];
