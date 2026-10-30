@@ -510,6 +510,20 @@ img{max-width:100%}
  .how .step-photo{height:142px}
 }
 
+
+/* How It Works: give photos enough height to show the scene clearly */
+.how .step-photo{height:230px}
+.how .step-wide .step-photo{height:230px;border-radius:16px}
+.how .step-photo img{object-position:center center}
+@media(max-width:700px){
+  .how .step-photo{height:230px}
+  .how .step-wide .step-photo{height:230px;border-radius:0}
+  .how .step-photo img{object-position:center center}
+}
+@media(max-width:390px){
+  .how .step-photo{height:215px}
+  .how .step-wide .step-photo{height:215px}
+}
 </style>
 </head>
 <body>
