@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS landing_links (
   name TEXT,
   phone TEXT NOT NULL DEFAULT '',
   message TEXT NOT NULL,
+  contact_mode TEXT NOT NULL DEFAULT 'prefill',
   source TEXT DEFAULT 'test',
   agent TEXT DEFAULT 'test-agent',
   campaign TEXT,
