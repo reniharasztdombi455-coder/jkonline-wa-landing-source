@@ -49,7 +49,7 @@ jobs:
             ["event contract matches manager schema", track.includes('"page_view", "whatsapp_click", "whatsapp_handoff"') && !track.includes("whatsapp_open_attempt")],
             ["automatic redirect uses handoff event", page.includes("whatsapp_handoff") && !page.includes("whatsapp_open_attempt")],
             ["direct redirect records landing page view", redirect.includes('recordEvent("page_view")')],
-            ["direct redirect records WhatsApp click once", redirect.includes('recordEvent("whatsapp_click")') && !api.includes("INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')")]
+            ["direct redirect records handoff once", redirect.includes('recordEvent("whatsapp_handoff")') && !redirect.includes('recordEvent("whatsapp_click")') && !api.includes("INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')")]
           ];
           for (const [name, ok] of checks) {
             console.log((ok ? "PASS " : "FAIL ") + name);
