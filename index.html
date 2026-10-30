@@ -367,10 +367,131 @@ footer{background:#03172d;color:#b8c9d9;padding:24px 0;font-size:11px}.footer-ro
 .contact-band.contact-hero:after{display:none}
 .contact-band.contact-hero .contact-row{position:relative;z-index:1}
 @media(max-width:700px){.contact-band.contact-hero:before{background-image:linear-gradient(180deg,rgba(3,29,55,.70),rgba(3,29,55,.80)),url("https://images.unsplash.com/photo-1640290970426-fe6a132df9fc?auto=format&fit=crop&w=1400&q=88");background-position:58% center}}
+
+/* Final responsive polish: preserve content and functionality */
+:root{--ink:#17324f;--muted:#61758b;--line:#e4ebf2}
+body{font-size:15px;line-height:1.55;color:var(--ink)}
+p{overflow-wrap:break-word}
+a,button{-webkit-tap-highlight-color:transparent}
+img{max-width:100%}
+@media(min-width:701px) and (max-width:1100px){
+  .wrap{width:calc(100% - 40px)}
+  .nav{gap:14px}
+  .navlinks{gap:16px}
+  .navlinks a{font-size:12px}
+  .brand-logo{width:38px;height:32px}
+  .brand-word{font-size:21px}
+  .nav-cta{padding:11px 14px;font-size:12px}
+  .hero-grid{grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:18px}
+  .hero h1{font-size:clamp(40px,4.7vw,52px)}
+  .hero-lead{font-size:15px}
+  .trust-item{gap:10px;padding:0 12px}
+  .trust-photo{width:62px;height:62px}
+  .trust-item b{font-size:13px}
+  .trust-item small{font-size:11px}
+  .jobs-grid{gap:16px}
+  .job h3{font-size:17px}
+  .job p{font-size:13px}
+}
+@media(max-width:700px){
+  html{scroll-padding-top:68px}
+  body{font-size:14px;background:#f5f8fc}
+  .wrap{width:calc(100% - 32px);max-width:560px}
+  header{height:62px}
+  .nav{gap:8px}
+  .brand{gap:5px;min-width:0}
+  .brand-logo{width:28px;height:25px}
+  .brand-word{font-size:16px;letter-spacing:-.35px}
+  .navlinks{display:none!important}
+  .country-link{font-size:9px!important;gap:4px;margin-left:auto;margin-right:0}
+  .country-link .us-flag{width:16px;height:11px}
+  .nav-cta{font-size:10px;padding:9px 10px;gap:5px;border-radius:999px}
+  .nav-cta .wa-icon{width:17px;height:17px}
+  .hero-grid{padding-top:82px;padding-bottom:26px;gap:0}
+  .eyebrow{font-size:9px;line-height:1.35;padding:7px 10px}
+  .hero h1{font-size:clamp(34px,8.4vw,43px);line-height:1.09;letter-spacing:-1px;margin:16px 0 12px}
+  .hero-lead{font-size:14px;line-height:1.65;margin-bottom:17px}
+  .hero .green-btn{min-height:68px;padding:12px 14px;font-size:15px;border-radius:14px}
+  .hero .green-btn .cta-copy{font-size:15px;line-height:1.3}
+  .hero .green-btn .cta-copy small{font-size:10px;line-height:1.4}
+  .hero-social-proof{gap:9px;margin-top:15px}
+  .avatar-stack img{width:30px;height:30px}
+  .social-proof-copy b{font-size:12px}
+  .social-proof-copy small{font-size:10px;line-height:1.4}
+  .position-panel{padding:13px 14px;margin-top:14px;border-radius:13px}
+  .position-panel .field-label strong{font-size:12px}
+  .position-panel .field-label span{font-size:10px;line-height:1.45}
+  .position-panel .code-box{font-size:13px;line-height:1.55}
+  .position-panel .primary{min-height:42px;padding:10px 13px;font-size:12px}
+  .trust-strip{background:#fff}
+  .trust-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px;padding:18px 0}
+  .trust-item{min-width:0;gap:9px;padding:0 2px}
+  .trust-photo{width:48px;height:48px;border-radius:10px}
+  .trust-item b{font-size:12px;line-height:1.35}
+  .trust-item small{font-size:10px;line-height:1.4;margin-top:2px}
+  .section{padding:42px 0}
+  .section-head{margin-bottom:23px}
+  .section-head h2,.how .section-head h2{font-size:28px;line-height:1.18;letter-spacing:-.65px}
+  .section-head p,.how .section-head p{font-size:13px;line-height:1.6}
+  .how{padding:44px 0 48px}
+  .how .kicker{font-size:10px;padding:7px 13px}
+  .how .steps{gap:14px}
+  .how .step{border-radius:16px}
+  .how .step-photo{height:145px}
+  .how .step h3{font-size:16px;line-height:1.35}
+  .how .step p{font-size:13px;line-height:1.6}
+  .jobs{padding:44px 0 48px}
+  .jobs-head{display:block;margin-bottom:20px}
+  .jobs-head h2{font-size:29px;line-height:1.2}
+  .jobs-head p{font-size:13px;line-height:1.6}
+  .jobs-head .text-link{font-size:12px;margin-top:10px}
+  .jobs-grid{grid-template-columns:1fr;gap:14px}
+  .job{border-radius:16px}
+  .job-photo{height:165px}
+  .job-body{padding:0 16px 18px}
+  .job-icon{width:50px;height:50px;margin-top:-25px}
+  .job-icon svg{width:24px;height:24px}
+  .job h3{font-size:17px;line-height:1.35;margin-bottom:7px}
+  .job p{font-size:13px;line-height:1.6;margin-bottom:12px}
+  .job .tag{font-size:10px;padding:7px 10px}
+  .testimonials{padding:40px 0}
+  .testimonials .section-head h2{font-size:26px}
+  .testimonials .section-head p{font-size:13px;line-height:1.55}
+  .reviews-grid{grid-template-columns:1fr;gap:11px}
+  .review-card{padding:13px;gap:12px;border-radius:13px}
+  .review-avatar{width:58px;height:58px}
+  .review-quote{font-size:12px;line-height:1.55}
+  .review-name{font-size:12px}
+  .review-disclaimer{font-size:10px;line-height:1.5}
+  .contact-band.contact-hero{padding:42px 0}
+  .contact-hero-copy h2{font-size:28px;line-height:1.2;letter-spacing:-.55px}
+  .contact-hero-copy p{font-size:13px;line-height:1.65}
+  .contact-hero .contact-actions{margin-top:19px}
+  .contact-hero .contact-actions .green-btn{min-height:56px;padding:13px 16px;font-size:15px;border-radius:13px}
+  .contact-benefits{gap:8px 12px;font-size:10px;line-height:1.5}
+  footer{padding:20px 0;font-size:10px;line-height:1.6}
+  .footer-row{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+}
+@media(max-width:380px){
+  .wrap{width:calc(100% - 28px)}
+  .brand-word{font-size:14px}
+  .brand-logo{width:25px;height:23px}
+  .country-link{font-size:8px!important}
+  .nav-cta{font-size:9px;padding:8px}
+  .nav-cta .wa-icon{width:15px;height:15px}
+  .hero h1{font-size:33px}
+  .hero-lead{font-size:13px}
+  .trust-grid{grid-template-columns:1fr;gap:12px}
+  .trust-item{gap:10px}
+  .trust-photo{width:46px;height:46px}
+  .section-head h2,.how .section-head h2{font-size:26px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
 </style>
 </head>
 <body>
-<header><div class="wrap nav"><a class="brand" href="#" aria-label="ConnectWise home"><svg class="brand-logo" viewBox="0 0 54 42" aria-hidden="true"><path d="M31 5.5A17 17 0 1 0 31 36.5" fill="none" stroke="#f7fbff" stroke-width="8" stroke-linecap="round"/><path d="M25 13.5 39 27.5 48 17" fill="none" stroke="#27b9f2" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="m35 26 10 10" fill="none" stroke="#27b9f2" stroke-width="7" stroke-linecap="round"/></svg><span class="brand-word">ConnectWise</span></a><nav class="navlinks"><a href="#">Home</a><a href="#how">How It Works</a><a href="#jobs">Job Types</a><a href="#details">Role Details</a><a href="#faq">FAQ</a></nav><a class="country-link" href="#details"><svg class="us-flag" viewBox="0 0 22 15" role="img" aria-label="United States flag"><rect width="22" height="15" fill="#fff"/><path fill="#c62828" d="M0 0h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0z"/><rect width="9.5" height="8.1" fill="#21468b"/><g fill="#fff"><circle cx="1.5" cy="1.3" r=".35"/><circle cx="3.3" cy="1.3" r=".35"/><circle cx="5.1" cy="1.3" r=".35"/><circle cx="7" cy="1.3" r=".35"/><circle cx="2.4" cy="2.8" r=".35"/><circle cx="4.3" cy="2.8" r=".35"/><circle cx="6.2" cy="2.8" r=".35"/><circle cx="8" cy="2.8" r=".35"/></g></svg> United States →</a><a class="nav-cta" href="#message-box"><img class="wa-icon" src="https://cdn.simpleicons.org/whatsapp/FFFFFF" alt="" aria-hidden="true">Contact on WhatsApp</a></div></header>
+<header><div class="wrap nav"><a class="brand" href="#" aria-label="ConnectWise home"><svg class="brand-logo" viewBox="0 0 54 42" aria-hidden="true"><path d="M31 5.5A17 17 0 1 0 31 36.5" fill="none" stroke="#f7fbff" stroke-width="8" stroke-linecap="round"/><path d="M25 13.5 39 27.5 48 17" fill="none" stroke="#27b9f2" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="m35 26 10 10" fill="none" stroke="#27b9f2" stroke-width="7" stroke-linecap="round"/></svg><span class="brand-word">ConnectWise</span></a><nav class="navlinks"><a href="#">Home</a><a href="#how">How It Works</a><a href="#jobs">Job Types</a></nav><a class="country-link" href="#details"><svg class="us-flag" viewBox="0 0 22 15" role="img" aria-label="United States flag"><rect width="22" height="15" fill="#fff"/><path fill="#c62828" d="M0 0h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0zm0 2.3h22v1.15H0z"/><rect width="9.5" height="8.1" fill="#21468b"/><g fill="#fff"><circle cx="1.5" cy="1.3" r=".35"/><circle cx="3.3" cy="1.3" r=".35"/><circle cx="5.1" cy="1.3" r=".35"/><circle cx="7" cy="1.3" r=".35"/><circle cx="2.4" cy="2.8" r=".35"/><circle cx="4.3" cy="2.8" r=".35"/><circle cx="6.2" cy="2.8" r=".35"/><circle cx="8" cy="2.8" r=".35"/></g></svg> United States →</a><a class="nav-cta" href="#message-box"><img class="wa-icon" src="https://cdn.simpleicons.org/whatsapp/FFFFFF" alt="" aria-hidden="true">Contact on WhatsApp</a></div></header>
 <main>
 <section class="hero"><div class="hero-photo" aria-hidden="true"></div><div class="wrap hero-grid"><div class="hero-copy"><div class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m13 2-3 9h7L9 22l2-9H4l9-11Z"/></svg> FLEXIBLE WORK OPPORTUNITIES FOR THE U.S.</div><h1>Earn Extra Income<br>with Flexible<br><span>Part-Time Jobs</span></h1><p class="hero-lead">Join ConnectWise and explore flexible online task opportunities. Learn about available schedules, review the role responsibilities, and speak with our team before deciding whether to apply.</p><div class="hero-actions"><a class="green-btn" id="hero-whatsapp-button" href="#message-box"><img class="wa-icon" src="https://cdn.simpleicons.org/whatsapp/FFFFFF" alt="" aria-hidden="true"><span class="cta-copy">Contact Us on WhatsApp<small>Chat with our team to learn more and review the requirements</small></span><span aria-hidden="true">→</span></a></div><div class="hero-social-proof"><div class="avatar-stack" aria-hidden="true"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt=""><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80" alt=""><img src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=100&q=80" alt=""><img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80" alt=""><img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80" alt=""></div><div class="social-proof-copy"><b>10,000+ people in the U.S.</b><small>have already joined ConnectWise</small></div></div><div class="position-panel" id="message-box"><div class="field-label"><strong>Your Position Code</strong><span>Include this code when you contact your assigned manager.</span></div><div class="code-box" id="message-text">Preparing your position code…</div><a class="primary" id="primary-button" href="#" rel="noopener noreferrer" hidden><img class="wa-icon" src="https://cdn.simpleicons.org/whatsapp/FFFFFF" alt="" aria-hidden="true"><span id="button-label">Continue to WhatsApp</span> →</a><p class="status" id="status" role="status" aria-live="polite" hidden></p></div></div><div class="hero-visual"><div class="hero-image-frame"><img src="https://images.pexels.com/photos/5908719/pexels-photo-5908719.jpeg?auto=compress&cs=tinysrgb&w=1600" alt="Woman smiling while working on a laptop at home"></div></div></div></section>
 <section class="trust-strip"><div class="wrap trust-grid"><div class="trust-item"><img class="trust-photo" src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=240&q=85" alt="Person working flexibly on a laptop"><span><b>Flexible Schedule</b><small>Work on your own schedule</small></span></div><div class="trust-item"><img class="trust-photo" src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=240&q=85" alt="Payment and financial planning"><span><b>Competitive Pay</b><small>Get paid after completing tasks</small></span></div><div class="trust-item"><img class="trust-photo" src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=240&q=85" alt="Laptop computer on a home office desk"><span><b>Work from Home</b><small>Just a phone or computer is enough</small></span></div><div class="trust-item"><img class="trust-photo" src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=240&q=85" alt="Team members working together and supporting each other"><span><b>Team Guidance</b><small>One-on-one guidance</small></span></div></div></section>
