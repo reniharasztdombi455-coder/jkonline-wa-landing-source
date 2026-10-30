@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 INSERT OR REPLACE INTO landing_links(id,slug,name,phone,message,source,agent,campaign,ad,enabled)
-VALUES(1,'queue-test','Queue local test','15551234567','Hello, my code is TEST-AB/-1.','ci','test-agent','queue-ci','fixture',1);
+VALUES
+ (1,'queue-test','Queue local test','15551234567','Hello, my code is TEST-AB/-1.','ci','test-agent','queue-ci','fixture',1),
+ (2,'queue-test-2','Queue local test 2','15551234567','Hello, my code is TEST-AB/-1.','ci','test-agent','queue-ci','fixture-2',1);
 
 -- Queue tables are provisioned ahead of requests in production. The isolated
 -- CI database must create the same schema before exercising the hot path.
