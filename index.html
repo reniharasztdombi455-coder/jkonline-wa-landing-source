@@ -781,12 +781,23 @@ src="https://www.facebook.com/tr?id=39511936521782878&ev=PageView&noscript=1"
             button.href = target;
             button.addEventListener("click", (event) => {
               event.preventDefault();
-              // Do not lock the other CTAs: every click records an event and
-              // reuses this page session's already-assigned phone/code pair.
+              // Keep the existing first-party click record unchanged.
               void track("whatsapp_click", button.dataset.waCta || "hero");
-              // Mode one opens WhatsApp with the saved message prefilled.
-              // Mode two opens the same assigned number with an empty message box.
-              window.location.assign(target);
+
+              // Record the WhatsApp CTA click as a Meta standard Contact event.
+              // This represents a click/attempt to contact, not a confirmed message.
+              if (typeof window.fbq === "function") {
+                window.fbq("track", "Contact");
+              }
+
+              // Give the Pixel request a brief opportunity to leave the page before
+              // navigating. The bounded delay prevents a blocked Pixel from trapping
+              // the visitor and does not change the destination or assigned number.
+              window.setTimeout(() => {
+                // Mode one opens WhatsApp with the saved message prefilled.
+                // Mode two opens the same assigned number with an empty message box.
+                window.location.assign(target);
+              }, 300);
             });
           });
 
