@@ -16,6 +16,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Ensure API requests do not perform runtime DDL
+        run: |
+          if grep -RniE 'CREATE TABLE|ALTER TABLE|DROP TABLE' functions/api; then
+            echo "Runtime DDL found in API handlers; schema changes belong in migrations."
+            exit 1
+          fi
       - name: Check JavaScript files
         run: |
           find functions -type f -name '*.js' -print0 | while IFS= read -r -d '' file; do node --input-type=module --check < "$file"; done
