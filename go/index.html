@@ -59,7 +59,7 @@
       }
 
       function makeWhatsAppUrl(phone, message) {
-        const digits = String(phone || "").replace(/\\D/g, "");
+        const digits = String(phone || "").replace(/\D/g, "");
         if (digits.length < 8 || digits.length > 15) return "";
         const url = new URL("https://api.whatsapp.com/send/");
         url.searchParams.set("phone", digits);
@@ -148,7 +148,7 @@
         if (debug) {
           showTimings();
         } else {
-          void track("whatsapp_open_attempt", "auto_redirect");
+          void track("whatsapp_handoff", "auto_redirect");
           location.replace(target);
         }
       } catch (error) {

@@ -117,7 +117,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
   const tracking = (async () => {
     try {
       await recordEvent("page_view");
-      await recordEvent("whatsapp_click");
+      await recordEvent("whatsapp_handoff");
     } catch (error) {
       console.log("[whatsapp-go-track-error]", String(error?.message || error).slice(0,160));
     }
