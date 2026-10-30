@@ -120,8 +120,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
   const timing = {};
   try {
-    // Production schema is provisioned ahead of traffic. Do not run CREATE TABLE
-    // statements in the redirect hot path: D1 DDL adds latency on every cold isolate.
+    // Production schema is provisioned ahead of traffic by reviewed migrations.
     const phase = Date.now();
     // Accept both the canonical text slug and legacy numeric landing_links.id.
     // Once resolved, all queue/session/analytics work must use the canonical slug.
