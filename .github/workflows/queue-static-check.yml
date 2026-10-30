@@ -46,8 +46,8 @@ jobs:
             ["queue refill lock exists", api.includes("wa_queue_refill_locks")],
             ["claim uses compare-and-set", api.includes("WHERE id=? AND status='ready'")],
             ["landing page uses queue API", page.includes("/api/queue-claim")],
-            ["event contract matches manager schema", track.includes('"page_view", "whatsapp_click"') && !track.includes("whatsapp_open_attempt")],
-            ["old automatic click event removed", !page.includes('void track("whatsapp_click", "direct")')],
+            ["event contract matches manager schema", track.includes('"page_view", "whatsapp_click", "whatsapp_handoff"') && !track.includes("whatsapp_open_attempt")],
+            ["automatic redirect uses handoff event", page.includes("whatsapp_handoff") && !page.includes("whatsapp_open_attempt")],
             ["direct redirect records landing page view", redirect.includes('recordEvent("page_view")')],
             ["direct redirect records WhatsApp click once", redirect.includes('recordEvent("whatsapp_click")') && !api.includes("INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')")]
           ];
