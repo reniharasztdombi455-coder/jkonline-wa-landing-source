@@ -70,6 +70,51 @@ footer{background:#03172d;color:#b8c9d9;padding:24px 0;font-size:11px}.footer-ro
   .hero-lead{font-size:15px}
   .hero .green-btn{font-size:17px;min-height:80px}
 }
+/* Final mobile polish */
+@media(max-width:700px){
+  .hero-photo{background-position:68% center;opacity:.42}
+  .hero:before{background:linear-gradient(180deg,rgba(3,20,39,.86) 0%,rgba(4,27,50,.77) 58%,rgba(4,27,50,.72) 100%)}
+  .hero-grid{padding-top:78px;padding-bottom:23px}
+  .hero h1{font-size:clamp(35px,8.2vw,45px);line-height:1.03;letter-spacing:-1.35px;margin:16px 0 12px}
+  .hero-lead{font-size:13.5px;line-height:1.58;margin-bottom:16px}
+  .hero .green-btn{min-height:68px;border-radius:15px;padding:11px 14px}
+  .hero-social-proof{margin-top:14px}
+  .trust-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 10px;padding:17px 0}
+  .trust-item{justify-content:flex-start;gap:9px;padding:0 4px;min-width:0}
+  .trust-item>div:last-child{min-width:0}
+  .trust-item b{font-size:11px;line-height:1.25}
+  .trust-item small{font-size:9px;line-height:1.35}
+  .trust-icon{width:34px;height:34px;flex:none}
+  .section{padding:42px 0}
+  .section-head{margin-bottom:22px}
+  .section-head h2{font-size:27px;line-height:1.15}
+  .section-head p{font-size:12px;line-height:1.55}
+  .steps{grid-template-columns:1fr;gap:12px}
+  .step{padding:18px 16px;border-radius:16px}
+  .step-icon{width:42px;height:42px;margin-bottom:12px}
+  .step h3{font-size:13px;margin-bottom:6px}
+  .step p{font-size:11px;line-height:1.55}
+}
+@media(max-width:430px){
+  .wrap{width:calc(100% - 28px)}
+  .nav{gap:6px}
+  .brand{font-size:15px}
+  .brand-mark{width:24px;height:24px}
+  .nav-cta{padding:8px 8px;font-size:9px}
+  .hero-grid{padding-top:73px}
+  .eyebrow{font-size:8px;padding:7px 9px}
+  .hero h1{font-size:clamp(33px,8.7vw,38px);letter-spacing:-1.2px}
+  .hero-lead{font-size:13px}
+  .hero .green-btn{min-height:66px;font-size:14px}
+  .cta-copy small{font-size:8px}
+  .hero-social-proof{gap:8px}
+  .avatar-stack img{width:27px;height:27px}
+  .social-proof-copy b{font-size:10px}
+  .social-proof-copy small{font-size:8px}
+  .trust-grid{grid-template-columns:1fr;gap:13px;padding:16px 0}
+  .trust-item{padding:0 3px}
+  .section{padding:36px 0}
+}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
 </style>
 </head>
