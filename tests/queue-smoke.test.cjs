@@ -5,7 +5,7 @@ const token = n => ("session_test_token_" + String(n).padStart(4, "0") + "_abcde
 async function claim(session_token) {
   const res = await fetch(base + "/api/queue-claim", {
     method: "POST",
-    headers: {"content-type":"application/json"},
+    headers: {"content-type":"application/json","origin":base},
     body: JSON.stringify({slug, session_token}),
     cache: "no-store"
   });
