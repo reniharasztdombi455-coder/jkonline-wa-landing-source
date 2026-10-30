@@ -513,37 +513,23 @@
           void track("page_view");
 
           let routing = false;
-          let autoRedirectAttempted = false;
 
-          async function routeToWhatsApp(buttonType) {
+          $("primary-button").addEventListener("click", (event) => {
+            event.preventDefault();
             if (routing) return;
             routing = true;
             const button = $("primary-button");
             button.style.opacity = ".65";
             setStatus("");
 
-            // The number was already claimed atomically by /api/queue-claim.
-            // Do not call /api/assign-wa here, or the visitor could get a
-            // second number that does not match the pre-reserved customer code.
-            void track(buttonType === "auto" ? "whatsapp_handoff" : "whatsapp_click", buttonType);
+            // The customer explicitly clicked. Record a click, then open the
+            // already assigned WhatsApp contact without claiming another pair.
+            void track("whatsapp_click", "primary");
             window.location.assign(target);
-          }
-
-          $("primary-button").addEventListener("click", (event) => {
-            event.preventDefault();
-            routeToWhatsApp("primary");
           });
 
-          // Do not add an artificial delay after the prepared pair is claimed.
-          // Give the browser one event-loop turn to paint the fallback button,
-          // then navigate immediately. Replenishment runs server-side in background.
-          window.setTimeout(() => {
-            if (autoRedirectAttempted || routing) return;
-            autoRedirectAttempted = true;
-            routeToWhatsApp("auto");
-          }, 0);
-
-                    document.title = "Click to Open WhatsApp";
+          // Manual navigation only: never redirect merely because the page loaded.
+          document.title = "Click to Open WhatsApp";
           setStatus("");
         } catch (error) {
           setStatus(
