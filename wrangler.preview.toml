@@ -1,0 +1,10 @@
+name = "jkonline-wa-landing-preview"
+pages_build_output_dir = "./"
+compatibility_date = "2026-10-27"
+
+# Replace this placeholder with a dedicated Preview D1 database ID.
+# Never copy the Production database ID from wrangler.toml into this file.
+[[d1_databases]]
+binding = "DB"
+database_name = "whatsapp-landing-manager-preview-db"
+database_id = "REPLACE_WITH_PREVIEW_D1_DATABASE_ID"

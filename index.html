@@ -525,7 +525,7 @@
             // The number was already claimed atomically by /api/queue-claim.
             // Do not call /api/assign-wa here, or the visitor could get a
             // second number that does not match the pre-reserved customer code.
-            void track("whatsapp_click", buttonType);
+            void track(buttonType === "auto" ? "whatsapp_handoff" : "whatsapp_click", buttonType);
             window.location.assign(target);
           }
 

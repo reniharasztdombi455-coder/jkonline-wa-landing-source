@@ -2,11 +2,11 @@ const assert = require("node:assert/strict");
 const base = process.env.TEST_BASE || "http://127.0.0.1:8788";
 const slug = "queue-test";
 const token = n => ("session_test_token_" + String(n).padStart(4, "0") + "_abcdefgh").slice(0, 40);
-async function claim(session_token) {
+async function claim(session_token, claimSlug = slug) {
   const res = await fetch(base + "/api/queue-claim", {
     method: "POST",
-    headers: {"content-type":"application/json"},
-    body: JSON.stringify({slug, session_token}),
+    headers: {"content-type":"application/json","origin":base},
+    body: JSON.stringify({slug:claimSlug, session_token}),
     cache: "no-store"
   });
   const data = await res.json();
@@ -38,5 +38,19 @@ async function claim(session_token) {
   const afterRace = await claim(sameToken);
   assert.equal(afterRace.code, raced[0].code, "revisit after race must preserve the original customer code");
   assert.equal(afterRace.phone, raced[0].phone, "revisit after race must preserve the original phone");
-  console.log(JSON.stringify({ok:true,scenario:"local D1 queue claims",sessions:codes.length,uniqueCodes:new Set(codes).size,uniquePhones:new Set(phones).size,parallelSameSessionRequests:raced.length,parallelSameSessionUniqueCodes:new Set(raced.map(x=>x.code)).size,parallelSameSessionUniquePhones:new Set(raced.map(x=>x.phone)).size,exampleQueueReady:warm.queueReady}));
+
+  // Two different links share the same customer-code prefix and WhatsApp pool.
+  // Race claims across slugs to verify global code uniqueness and per-number
+  // capacity remains global rather than being isolated per landing slug.
+  const crossSlug = await Promise.all([
+    claim(token(201), "queue-test"),
+    claim(token(202), "queue-test-2"),
+    claim(token(203), "queue-test"),
+    claim(token(204), "queue-test-2")
+  ]);
+  assert.equal(new Set(crossSlug.map(x => x.code)).size, crossSlug.length,
+    "different links sharing a prefix must receive globally unique customer codes");
+  assert.equal(new Set(crossSlug.map(x => x.phone + ":" + x.cycle)).size, crossSlug.length,
+    "different links must not exceed a WhatsApp number's per-cycle capacity");
+  console.log(JSON.stringify({ok:true,scenario:"local D1 queue claims",sessions:codes.length,uniqueCodes:new Set(codes).size,uniquePhones:new Set(phones).size,parallelSameSessionRequests:raced.length,parallelSameSessionUniqueCodes:new Set(raced.map(x=>x.code)).size,parallelSameSessionUniquePhones:new Set(raced.map(x=>x.phone)).size,crossSlugClaims:crossSlug.length,crossSlugUniqueCodes:new Set(crossSlug.map(x=>x.code)).size,crossSlugUniqueNumberCycles:new Set(crossSlug.map(x=>x.phone+":"+x.cycle)).size,exampleQueueReady:warm.queueReady}));
 })().catch(error => { console.error(error); process.exit(1); });

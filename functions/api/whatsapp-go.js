@@ -64,7 +64,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
   const sessionToken = existingToken || crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
   const claimRequest = new Request(new URL("/api/queue-claim", incoming.origin), {
     method:"POST",
-    headers:{"Content-Type":"application/json"},
+    headers:{"Content-Type":"application/json","Origin":incoming.origin},
     body:JSON.stringify({ slug, session_token:sessionToken })
   });
 
@@ -93,22 +93,37 @@ export async function onRequestGet({ request, env, waitUntil }) {
   // Keep the prefilled message and avoid a second client-side redirect.
   const target = new URL("https://wa.me/" + digits);
   target.searchParams.set("text", String(claim.message).slice(0, 800));
-  const trackRequest = new Request(new URL("/api/track", incoming.origin), {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      slug,
-      session_token:sessionToken,
-      event_type:"whatsapp_click",
-      button_type:"server_redirect",
-      page_path:"/api/whatsapp-go",
-      referrer_host:(() => { try { return incoming.searchParams.get("src") || new URL(request.headers.get("Referer") || "").hostname; } catch { return ""; } })()
-    })
+  const referrerHost = (() => {
+    try { return incoming.searchParams.get("src") || new URL(request.headers.get("Referer") || "").hostname; }
+    catch { return ""; }
+  })();
+  const recordEvent = (eventType) => saveTrack({
+    request:new Request(new URL("/api/track", incoming.origin), {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        slug,
+        session_token:sessionToken,
+        event_type:eventType,
+        button_type:"server_redirect",
+        page_path:"/api/whatsapp-go",
+        referrer_host:referrerHost
+      })
+    }),
+    env
   });
-  const tracking = saveTrack({ request:trackRequest, env }).catch(error => {
-    console.log("[whatsapp-go-track-error]", String(error?.message || error).slice(0,160));
-  });
+  // This route redirects immediately, so record both the landing visit and
+  // the WhatsApp handoff server-side; the HTML page is not rendered.
+  const tracking = (async () => {
+    try {
+      await recordEvent("page_view");
+      await recordEvent("whatsapp_handoff");
+    } catch (error) {
+      console.log("[whatsapp-go-track-error]", String(error?.message || error).slice(0,160));
+    }
+  })();
   if (typeof waitUntil === "function") waitUntil(tracking);
+  else await tracking;
 
   console.log("[wa-timing] whatsapp-go-total", JSON.stringify({ totalMs:Date.now()-claimStarted, outcome:"redirect-302" }));
   console.log("[whatsapp-go]", JSON.stringify({ slug, code:claim.code, cycle:claim.cycle, response:"302-redirect" }));

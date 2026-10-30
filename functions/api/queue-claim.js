@@ -5,67 +5,7 @@ function clean(v, n = 180) { return String(v ?? "").replace(/[\u0000-\u001f\u007
 
 const QUEUE_TARGET = 20;
 
-const schema = [
-  `CREATE TABLE IF NOT EXISTS landing_code_counters (
-    slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
-  )`,
-  `CREATE TABLE IF NOT EXISTS unique_customer_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    slug TEXT NOT NULL,
-    customer_code TEXT NOT NULL,
-    event_type TEXT NOT NULL,
-    first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    UNIQUE(slug, customer_code, event_type)
-  )`,
-  `CREATE TABLE IF NOT EXISTS customer_code_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, session_token TEXT NOT NULL,
-    customer_code TEXT NOT NULL UNIQUE, source TEXT NOT NULL DEFAULT 'direct',
-    agent TEXT NOT NULL DEFAULT 'unknown',
-    first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    last_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    page_views INTEGER NOT NULL DEFAULT 0, whatsapp_clicks INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(slug, session_token)
-  )`,
-  `CREATE TABLE IF NOT EXISTS wa_numbers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL, phone TEXT NOT NULL,
-    max_per_cycle INTEGER NOT NULL DEFAULT 3, sort_order INTEGER NOT NULL DEFAULT 0,
-    enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-  )`,
-  `CREATE TABLE IF NOT EXISTS wa_assignments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL,
-    wa_number_id INTEGER NOT NULL, cycle INTEGER NOT NULL,
-    assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    UNIQUE(slug, customer_code)
-  )`,
-  `CREATE TABLE IF NOT EXISTS wa_route_state (
-    id INTEGER PRIMARY KEY CHECK(id=1), cycle INTEGER NOT NULL DEFAULT 1
-  )`,
-  `CREATE TABLE IF NOT EXISTS wa_prefetch_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, customer_code TEXT NOT NULL UNIQUE,
-    wa_number_id INTEGER NOT NULL, cycle INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ready',
-    claimed_session_token TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-    claimed_at TEXT, UNIQUE(slug, customer_code)
-  )`,
-  `CREATE TABLE IF NOT EXISTS wa_queue_refill_locks (
-    slug TEXT PRIMARY KEY, locked_until INTEGER NOT NULL DEFAULT 0
-  )`
-];
-
-// Cache schema initialization per Worker isolate. Running CREATE TABLE IF NOT EXISTS
-// for every visitor adds avoidable D1 round trips to the redirect's critical path.
-let schemaReady;
-async function ensureSchema(DB) {
-  if (!schemaReady) {
-    schemaReady = (async () => {
-      await Promise.all(schema.map(sql => DB.prepare(sql).run()));
-      await DB.prepare("INSERT OR IGNORE INTO wa_route_state(id,cycle) VALUES(1,1)").run();
-    })().catch(error => {
-      schemaReady = null;
-      throw error;
-    });
-  }
-  return schemaReady;
-}
+// All queue/session tables are provisioned by the reviewed D1 migration.
 
 async function readyCount(DB, slug) {
   const row = await DB.prepare("SELECT COUNT(*) AS n FROM wa_prefetch_queue WHERE slug=? AND status='ready'").bind(slug).first();
@@ -84,36 +24,66 @@ async function reserveOne(DB, link, prefix) {
 
   const state = await DB.prepare("SELECT cycle FROM wa_route_state WHERE id=1").first();
   const baseCycle = Math.max(1, Number(state?.cycle || 1));
-  let reserved = null;
 
-  // A full cycle may already be occupied. Keep advancing until a cycle has
-  // capacity; an enabled number pool always has capacity in a later cycle.
-  for (let offset = 0; offset < 1000 && !reserved; offset++) {
-    const cycle = baseCycle + offset;
-    const result = await DB.prepare(`
-      INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
-      SELECT ?, ?, n.id, ?
-      FROM wa_numbers n
-      WHERE n.enabled=1
-        AND (SELECT COUNT(*) FROM wa_assignments a
-             WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
-      ORDER BY n.sort_order,n.id LIMIT 1
-      RETURNING wa_number_id,cycle
-    `).bind(link.slug, code, cycle, cycle).first();
-    if (result) reserved = { wa_number_id:Number(result.wa_number_id), cycle:Number(result.cycle) };
-  }
-  if (!reserved) return false;
+  // A different landing link can reserve the same candidate between SELECT
+  // and batch(). The batch rechecks capacity atomically; if that race is lost,
+  // re-query instead of reporting a false "no available number".
+  for (let attempt = 0; attempt < 10; attempt++) {
+    let reserved = null;
 
-  await DB.prepare("UPDATE wa_route_state SET cycle=MAX(cycle,?) WHERE id=1").bind(reserved.cycle).run();
-  try {
-    await DB.prepare(`INSERT INTO wa_prefetch_queue(slug,customer_code,wa_number_id,cycle,status)
-      VALUES(?,?,?,?,'ready')`).bind(link.slug, code, reserved.wa_number_id, reserved.cycle).run();
-  } catch (error) {
-    // Do not leave an invisible assignment consuming a phone's cycle capacity.
-    await DB.prepare("DELETE FROM wa_assignments WHERE slug=? AND customer_code=?").bind(link.slug,code).run().catch(() => {});
-    throw error;
+    // A full cycle may already be occupied. Keep advancing until a cycle has
+    // capacity; an enabled number pool always has capacity in a later cycle.
+    for (let offset = 0; offset < 1000 && !reserved; offset++) {
+      const cycle = baseCycle + offset;
+      const result = await DB.prepare(`
+        SELECT n.id AS wa_number_id
+        FROM wa_numbers n
+        WHERE n.enabled=1
+          AND (SELECT COUNT(*) FROM wa_assignments a
+               WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
+        ORDER BY n.sort_order,n.id LIMIT 1
+      `).bind(cycle).first();
+      if (result) reserved = { wa_number_id:Number(result.wa_number_id), cycle };
+    }
+    if (!reserved) return false;
+
+    // Commit the assignment, queue row, and route cursor as one D1 transaction.
+    // If queue insertion fails (including a constraint/trigger failure), D1 rolls
+    // back the assignment too, so no invisible reservation consumes cycle capacity.
+    const results = await DB.batch([
+      DB.prepare(`
+        INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
+        SELECT ?, ?, n.id, ?
+        FROM wa_numbers n
+        WHERE n.id=? AND n.enabled=1
+          AND (SELECT COUNT(*) FROM wa_assignments a
+               WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
+      `).bind(link.slug, code, reserved.cycle, reserved.wa_number_id, reserved.cycle),
+      DB.prepare(`
+        INSERT INTO wa_prefetch_queue(slug,customer_code,wa_number_id,cycle,status)
+        SELECT ?, ?, a.wa_number_id, a.cycle, 'ready'
+        FROM wa_assignments a
+        WHERE a.slug=? AND a.customer_code=?
+          AND NOT EXISTS (
+            SELECT 1 FROM wa_prefetch_queue q
+            WHERE q.slug=a.slug AND q.customer_code=a.customer_code
+          )
+      `).bind(link.slug, code, link.slug, code),
+      DB.prepare(`
+        UPDATE wa_route_state SET cycle=MAX(cycle,?)
+        WHERE id=1 AND EXISTS (
+          SELECT 1 FROM wa_prefetch_queue
+          WHERE slug=? AND customer_code=?
+        )
+      `).bind(reserved.cycle, link.slug, code)
+    ]);
+    const assignmentChanges = Number(results?.[0]?.meta?.changes || 0);
+    const queueChanges = Number(results?.[1]?.meta?.changes || 0);
+    if (assignmentChanges === 1 && queueChanges === 1) return true;
+    // A concurrent request may have taken the selected number/cycle. Retry
+    // with a fresh capacity read; never weaken the capacity predicate.
   }
-  return true;
+  return false;
 }
 
 async function refill(DB, link, prefix, target = QUEUE_TARGET) {
@@ -155,6 +125,20 @@ export async function onRequestPost({ request, env, waitUntil }) {
   if (userAgent.includes("meta-externalads/") || userAgent.includes("meta-externalagent/")) {
     return new Response(null, { status: 204, headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Robots-Tag": "noindex, nofollow" } });
   }
+  // This endpoint consumes a pre-assigned customer/phone pair. Accept
+  // browser JSON requests only from this exact origin to reduce cross-site
+  // request abuse; the internal /api/whatsapp-go call supplies the same Origin.
+  const origin = request.headers.get("Origin") || "";
+  let requestOrigin = "";
+  try { requestOrigin = new URL(request.url).origin; } catch {}
+  if (!origin || origin !== requestOrigin) {
+    return json({ error:"Origin not allowed" },403);
+  }
+  const contentType = (request.headers.get("Content-Type") || "").toLowerCase();
+  if (!contentType.includes("application/json")) {
+    return json({ error:"Content-Type must be application/json" },415);
+  }
+
   const started = Date.now();
   let body;
   try { body = await request.json(); } catch { return json({ error:"Invalid JSON" },400); }
@@ -166,8 +150,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
   const timing = {};
   try {
-    // Production schema is provisioned ahead of traffic. Do not run CREATE TABLE
-    // statements in the redirect hot path: D1 DDL adds latency on every cold isolate.
+    // Production schema is provisioned ahead of traffic by reviewed migrations.
     const phase = Date.now();
     // Accept both the canonical text slug and legacy numeric landing_links.id.
     // Once resolved, all queue/session/analytics work must use the canonical slug.
@@ -342,26 +325,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     if (!phone) return json({error:"预备号码不存在或已停用，请联系管理员。"},500);
 
-    // Analytics are not required to create a correct assignment or redirect.
-    // Schedule them after the response on Cloudflare; preserve synchronous
-    // behavior only in runtimes that do not provide waitUntil.
-    const recordClick = async () => {
-      try {
-        // The unique key prevents double-counting for the same code and event.
-        const clickEvent = await env.DB.prepare(
-          "INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')"
-        ).bind(slug, claimed.customer_code).run();
-        if (Number(clickEvent.meta?.changes || 0) > 0) {
-          await env.DB.prepare(
-            "UPDATE customer_code_sessions SET whatsapp_clicks = whatsapp_clicks + 1, last_seen = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE slug = ? AND session_token = ?"
-          ).bind(slug, token).run();
-        }
-      } catch (error) {
-        console.log("[wa-click-count-error]", String(error?.message || error).slice(0,160));
-      }
-    };
-    if (typeof waitUntil === "function") waitUntil(recordClick());
-    else await recordClick();
+    // Click analytics are recorded once by /api/track in whatsapp-go.js.
+    // Queue claims alone are not counted as completed WhatsApp click events.
 
     const doRefill = () => refill(env.DB,link,prefix,QUEUE_TARGET).catch(error => console.log("[wa-queue-refill-error]",String(error?.message||error).slice(0,180)));
     if (typeof waitUntil === "function") waitUntil(doRefill());

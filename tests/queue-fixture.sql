@@ -26,12 +26,22 @@ CREATE TABLE IF NOT EXISTS events (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 INSERT OR REPLACE INTO landing_links(id,slug,name,phone,message,source,agent,campaign,ad,enabled)
-VALUES(1,'queue-test','Queue local test','15551234567','Hello, my code is TEST-AB/-1.','ci','test-agent','queue-ci','fixture',1);
+VALUES
+ (1,'queue-test','Queue local test','15551234567','Hello, my code is TEST-AB/-1.','ci','test-agent','queue-ci','fixture',1),
+ (2,'queue-test-2','Queue local test 2','15551234567','Hello, my code is TEST-AB/-1.','ci','test-agent','queue-ci','fixture-2',1);
 
 -- Queue tables are provisioned ahead of requests in production. The isolated
 -- CI database must create the same schema before exercising the hot path.
 CREATE TABLE IF NOT EXISTS landing_code_counters (
   slug TEXT PRIMARY KEY, last_number INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS unique_customer_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL,
+  customer_code TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE(slug, customer_code, event_type)
 );
 CREATE TABLE IF NOT EXISTS customer_code_sessions (
   id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL, session_token TEXT NOT NULL,
