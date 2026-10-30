@@ -44,16 +44,39 @@ async function reserveOne(DB, link, prefix) {
   }
   if (!reserved) return false;
 
-  await DB.prepare("UPDATE wa_route_state SET cycle=MAX(cycle,?) WHERE id=1").bind(reserved.cycle).run();
-  try {
-    await DB.prepare(`INSERT INTO wa_prefetch_queue(slug,customer_code,wa_number_id,cycle,status)
-      VALUES(?,?,?,?,'ready')`).bind(link.slug, code, reserved.wa_number_id, reserved.cycle).run();
-  } catch (error) {
-    // Do not leave an invisible assignment consuming a phone's cycle capacity.
-    await DB.prepare("DELETE FROM wa_assignments WHERE slug=? AND customer_code=?").bind(link.slug,code).run().catch(() => {});
-    throw error;
-  }
-  return true;
+  // Commit the assignment, queue row, and route cursor as one D1 transaction.
+  // If queue insertion fails (including a constraint/trigger failure), D1 rolls
+  // back the assignment too, so no invisible reservation consumes cycle capacity.
+  const results = await DB.batch([
+    DB.prepare(`
+      INSERT INTO wa_assignments(slug,customer_code,wa_number_id,cycle)
+      SELECT ?, ?, n.id, ?
+      FROM wa_numbers n
+      WHERE n.id=? AND n.enabled=1
+        AND (SELECT COUNT(*) FROM wa_assignments a
+             WHERE a.wa_number_id=n.id AND a.cycle=?) < MAX(1,COALESCE(n.max_per_cycle,1))
+    `).bind(link.slug, code, reserved.cycle, reserved.wa_number_id, reserved.cycle),
+    DB.prepare(`
+      INSERT INTO wa_prefetch_queue(slug,customer_code,wa_number_id,cycle,status)
+      SELECT ?, ?, a.wa_number_id, a.cycle, 'ready'
+      FROM wa_assignments a
+      WHERE a.slug=? AND a.customer_code=?
+        AND NOT EXISTS (
+          SELECT 1 FROM wa_prefetch_queue q
+          WHERE q.slug=a.slug AND q.customer_code=a.customer_code
+        )
+    `).bind(link.slug, code, link.slug, code),
+    DB.prepare(`
+      UPDATE wa_route_state SET cycle=MAX(cycle,?)
+      WHERE id=1 AND EXISTS (
+        SELECT 1 FROM wa_prefetch_queue
+        WHERE slug=? AND customer_code=?
+      )
+    `).bind(reserved.cycle, link.slug, code)
+  ]);
+  const assignmentChanges = Number(results?.[0]?.meta?.changes || 0);
+  const queueChanges = Number(results?.[1]?.meta?.changes || 0);
+  return assignmentChanges === 1 && queueChanges === 1;
 }
 
 async function refill(DB, link, prefix, target = QUEUE_TARGET) {
