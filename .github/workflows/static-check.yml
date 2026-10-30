@@ -41,7 +41,8 @@ jobs:
           import pathlib, sqlite3
           db = sqlite3.connect(":memory:")
           db.executescript(pathlib.Path("migrations/0001_integrated_queue_schema.sql").read_text(encoding="utf-8"))
-          required = {"landing_code_counters", "customer_code_sessions", "wa_numbers", "wa_assignments", "wa_route_state", "wa_prefetch_queue", "wa_queue_refill_locks", "unique_customer_events"}
+          db.executescript(pathlib.Path("migrations/0002_manager_shared_tables.sql").read_text(encoding="utf-8"))
+          required = {"landing_code_counters", "customer_code_sessions", "wa_numbers", "wa_assignments", "wa_route_state", "wa_prefetch_queue", "wa_queue_refill_locks", "unique_customer_events", "customer_followups", "campaign_spend"}
           actual = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
           missing = required - actual
           assert not missing, f"Missing tables: {sorted(missing)}"
