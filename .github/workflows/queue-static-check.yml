@@ -48,7 +48,7 @@ jobs:
             ["claim uses compare-and-set", api.includes("WHERE id=? AND status='ready'")],
             ["landing page uses queue API", landing.includes("/api/queue-claim") && page.includes("/api/queue-claim")],
             ["event contract matches production D1 constraint", track.includes('["page_view", "whatsapp_click"]') && !track.includes("whatsapp_handoff") && !track.includes("whatsapp_open_attempt")],
-            ["main landing page requires an explicit click", landing.includes('addEventListener("click"') && landing.includes('track("whatsapp_click", "primary")') && !landing.includes("window.setTimeout")],
+            ["main landing page requires an explicit click", landing.includes('addEventListener("click"') && landing.includes('track("whatsapp_click", button.dataset.waCta || "hero")') && landing.includes("window.location.assign(target)") && !landing.includes("window.setTimeout")],
             ["go page requires an explicit click", page.includes('track("whatsapp_click"') && !page.includes("location.replace(target)")],
             ["legacy automatic redirect endpoint is disabled", redirect.includes("status: 410") && !redirect.includes("Location")],
             ["middleware does not invoke automatic redirect", !fs.readFileSync("functions/_middleware.js", "utf8").includes("whatsappGo(context)") && fs.readFileSync("functions/_middleware.js", "utf8").includes("return context.next()")]
@@ -82,6 +82,10 @@ jobs:
         run: npx wrangler d1 execute jkonline-wa-local-test-only --local --config wrangler.jsonc --file tests/queue-fixture.sql
       - name: Start Pages against isolated local D1 and initialize queue tables
         run: |
+          # Pages Dev only auto-discovers the standard config filename. Temporarily move
+          # the production wrangler.toml out of the way so it loads the isolated
+          # local-only wrangler.jsonc created above. This affects only the CI workspace.
+          mv wrangler.toml wrangler.production.toml.ci-backup
           npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/pages-dev.log 2>&1 &
           echo $! > /tmp/pages-dev.pid
           ready=0
