@@ -164,6 +164,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
       LEFT JOIN customer_code_sessions s ON s.slug=l.slug AND s.session_token=?
       LEFT JOIN wa_assignments a ON a.slug=s.slug AND a.customer_code=s.customer_code
       LEFT JOIN wa_numbers n ON n.id=a.wa_number_id
+      LEFT JOIN wa_group_assignments ga ON ga.slug=s.slug AND ga.customer_code=s.customer_code
+      LEFT JOIN wa_groups g ON g.id=ga.group_id
       WHERE l.slug=? OR CAST(l.id AS TEXT)=?
       LIMIT 1
     `).bind(token,slug,slug).first();
@@ -174,6 +176,68 @@ export async function onRequestPost({ request, env, waitUntil }) {
     const match = String(link.message || "").match(pattern);
     if (!match) return json({error:"后台预设消息中需要包含基础客户编号，例如 F-HT-1027/-1。"},400);
     const prefix = match[1];
+
+    // Group routing bypasses the phone queue entirely. A browser session keeps
+    // its original group assignment on every revisit.
+    if (link.routing_mode === "group") {
+      let customerCode = link.existing_customer_code || "";
+      let group = link.existing_group_id ? {
+        id: Number(link.existing_group_id),
+        invite_url: link.existing_group_url,
+        label: link.existing_group_label
+      } : null;
+
+      if (!customerCode) {
+        const counter = await env.DB.prepare(`
+          INSERT INTO landing_code_counters(slug,last_number) VALUES(?,1)
+          ON CONFLICT(slug) DO UPDATE SET last_number=last_number+1
+          RETURNING last_number
+        `).bind(slug).first();
+        customerCode = prefix + "/-" + Number(counter?.last_number || 0);
+        if (!Number(counter?.last_number || 0)) {
+          return json({error:"无法生成客户编号，请稍后重试。"},500);
+        }
+
+        await env.DB.prepare(`
+          INSERT INTO customer_code_sessions(slug,session_token,customer_code,source,agent)
+          VALUES(?,?,?,?,?)
+        `).bind(slug,token,customerCode,link.source||"direct",link.agent||"unknown").run();
+
+        const groups = await env.DB.prepare(`
+          SELECT id FROM wa_groups WHERE enabled=1
+          ORDER BY sort_order,id
+        `).all();
+        for (const candidate of (groups.results || [])) {
+          await env.DB.prepare(`
+            INSERT INTO wa_group_assignments(slug,customer_code,group_id)
+            SELECT ?,?,?
+            WHERE (SELECT COUNT(*) FROM wa_group_assignments WHERE group_id=?) <
+              (SELECT max_members FROM wa_groups WHERE id=? AND enabled=1)
+            ON CONFLICT(slug,customer_code) DO NOTHING
+          `).bind(slug,customerCode,candidate.id,candidate.id,candidate.id).run();
+          const assigned = await env.DB.prepare(`
+            SELECT ga.group_id,g.invite_url,g.label
+            FROM wa_group_assignments ga JOIN wa_groups g ON g.id=ga.group_id
+            WHERE ga.slug=? AND ga.customer_code=? LIMIT 1
+          `).bind(slug,customerCode).first();
+          if (assigned) {
+            group = {id:Number(assigned.group_id),invite_url:assigned.invite_url,label:assigned.label};
+            break;
+          }
+        }
+      }
+
+      if (!group?.invite_url) {
+        return json({error:"目前所有 WhatsApp 群组均已满员或停用，请联系管理员。"},503);
+      }
+      const customerMessage = String(link.message || "").replace(pattern,customerCode);
+      console.log("[wa-timing] queue-claim",JSON.stringify({totalMs:Date.now()-started,outcome:link.existing_customer_code?"group-existing":"group-new"}));
+      return json({
+        ok:true,code:customerCode,message:customerMessage,
+        contact_mode:"code_only",destination_type:"group",
+        target_url:group.invite_url,label:group.label,group_id:group.id
+      });
+    }
 
     // Idempotent revisit: the same browser token always receives its original pair.
     const existing = link.existing_customer_code ? {
