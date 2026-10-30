@@ -22,10 +22,14 @@ async function post(body) {
     cache:"no-store"
   });
   assert.equal(claimRes.status, 200, await claimRes.text());
-  for (const event_type of ["page_view","whatsapp_click"]) {
-    await post({event_type,button_type:"test"});
-    const duplicate = await post({event_type,button_type:"test"});
-    assert.equal(duplicate.counted, false, event_type + " should deduplicate per customer");
+  const firstView = await post({event_type:"page_view",button_type:"test"});
+  const duplicateView = await post({event_type:"page_view",button_type:"test"});
+  assert.equal(firstView.counted, true, "first page view should count");
+  assert.equal(duplicateView.counted, false, "page view should deduplicate per customer");
+  for (let i = 0; i < 3; i++) {
+    const click = await post({event_type:"whatsapp_click",button_type:["header","hero","footer"][i]});
+    assert.equal(click.counted, true, "every WhatsApp click should count");
+    assert.equal(click.deduplicated, false, "WhatsApp clicks must not deduplicate");
   }
   const check = await fetch(base + "/api/track", {
     method:"POST",
@@ -34,5 +38,5 @@ async function post(body) {
     cache:"no-store"
   });
   assert.equal(check.status,400,"unknown event types must be rejected");
-  console.log(JSON.stringify({ok:true,scenario:"analytics event semantics",eventTypes:["page_view","whatsapp_click"],duplicateEventsDeduplicated:true,invalidEventRejected:true}));
+  console.log(JSON.stringify({ok:true,scenario:"analytics event semantics",eventTypes:["page_view","whatsapp_click"],pageViewsDeduplicated:true,whatsappClicksCountEveryTime:true,invalidEventRejected:true}));
 })().catch(error => { console.error(error); process.exit(1); });
