@@ -730,6 +730,7 @@ img{max-width:100%}
           const phone = cleanText(claim.phone, 30);
           // Open WhatsApp without any prefilled message. The customer code is copied
           // to the clipboard on the visitor's deliberate CTA click instead.
+          const target = whatsappUrl(phone);
           if (!target) {
             throw new Error("The assigned WhatsApp number is invalid.");
           }
