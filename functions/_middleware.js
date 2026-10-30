@@ -34,8 +34,10 @@ export async function onRequest(context) {
       (mode && mode !== "navigate") ||
       (dest && dest !== "document") ||
       (hasFetchMetadata && user !== "?1" && mode !== "navigate");
-    const lacksBrowserNavigationMetadata = !hasFetchMetadata;
-    if (context.request.method !== "GET" || isNotTopLevelNavigation || lacksBrowserNavigationMetadata) {
+    // Some Facebook/Messenger in-app browsers omit Sec-Fetch-* headers.
+    // Missing metadata alone is not proof of a crawler; crawler user agents
+    // are filtered above. Reject only explicit non-document/fetch requests.
+    if (context.request.method !== "GET" || isNotTopLevelNavigation) {
       console.log("[wa-campaign-skip]", JSON.stringify({
         reason: "not-top-level-browser-navigation",
         method: context.request.method,
