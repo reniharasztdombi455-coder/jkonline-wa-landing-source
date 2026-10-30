@@ -81,7 +81,7 @@ jobs:
           echo $! > /tmp/pages-dev.pid
           ready=0
           for i in $(seq 1 40); do
-            if curl --max-time 3 -sS -o /tmp/first-claim.json -w '%{http_code}' http://127.0.0.1:8788/api/queue-claim -X POST -H 'content-type: application/json' --data '{"slug":"queue-test","session_token":"session_test_token_0000_abcdefgh"}' > /tmp/first-claim-status 2>/dev/null; then ready=1; break; fi
+            if curl --max-time 3 -sS -o /tmp/first-claim.json -w '%{http_code}' http://127.0.0.1:8788/api/queue-claim -X POST -H 'content-type: application/json' -H 'Origin: http://127.0.0.1:8788' --data '{"slug":"queue-test","session_token":"session_test_token_0000_abcdefgh"}' > /tmp/first-claim-status 2>/dev/null; then ready=1; break; fi
             sleep 1
           done
           if [ "$ready" != 1 ]; then cat /tmp/pages-dev.log; exit 1; fi
