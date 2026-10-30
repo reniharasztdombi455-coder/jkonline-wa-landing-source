@@ -64,7 +64,7 @@ export async function onRequestGet({ request, env, waitUntil }) {
   const sessionToken = existingToken || crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
   const claimRequest = new Request(new URL("/api/queue-claim", incoming.origin), {
     method:"POST",
-    headers:{"Content-Type":"application/json"},
+    headers:{"Content-Type":"application/json","Origin":incoming.origin},
     body:JSON.stringify({ slug, session_token:sessionToken })
   });
 
