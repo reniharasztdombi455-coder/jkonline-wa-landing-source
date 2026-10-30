@@ -121,10 +121,6 @@ async function refill(DB, link, prefix, target = QUEUE_TARGET) {
 }
 
 export async function onRequestPost({ request, env, waitUntil }) {
-  const userAgent = (request.headers.get("User-Agent") || "").toLowerCase();
-  if (userAgent.includes("meta-externalads/") || userAgent.includes("meta-externalagent/")) {
-    return new Response(null, { status: 204, headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "X-Robots-Tag": "noindex, nofollow" } });
-  }
   // This endpoint consumes a pre-assigned customer/phone pair. Accept
   // browser JSON requests only from this exact origin to reduce cross-site
   // request abuse; the internal /api/whatsapp-go call supplies the same Origin.
