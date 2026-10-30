@@ -41,12 +41,15 @@ jobs:
           const api = fs.readFileSync("functions/api/queue-claim.js", "utf8");
           const page = fs.readFileSync("go/index.html", "utf8");
           const track = fs.readFileSync("functions/api/track.js", "utf8");
+          const redirect = fs.readFileSync("functions/api/whatsapp-go.js", "utf8");
           const checks = [
             ["queue refill lock exists", api.includes("wa_queue_refill_locks")],
             ["claim uses compare-and-set", api.includes("WHERE id=? AND status='ready'")],
             ["landing page uses queue API", page.includes("/api/queue-claim")],
             ["event contract matches manager schema", track.includes('"page_view", "whatsapp_click"') && !track.includes("whatsapp_open_attempt")],
-            ["old automatic click event removed", !page.includes('void track("whatsapp_click", "direct")')]
+            ["old automatic click event removed", !page.includes('void track("whatsapp_click", "direct")')],
+            ["direct redirect records landing page view", redirect.includes('recordEvent("page_view")')],
+            ["direct redirect records WhatsApp click once", redirect.includes('recordEvent("whatsapp_click")') && !api.includes("INSERT OR IGNORE INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, 'whatsapp_click')")]
           ];
           for (const [name, ok] of checks) {
             console.log((ok ? "PASS " : "FAIL ") + name);
