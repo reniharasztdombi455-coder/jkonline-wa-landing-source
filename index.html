@@ -115,6 +115,29 @@ footer{background:#03172d;color:#b8c9d9;padding:24px 0;font-size:11px}.footer-ro
   .trust-item{padding:0 3px}
   .section{padding:36px 0}
 }
+/* Mobile visual balance and visible U.S. location indicator */
+@media(max-width:700px){
+  .hero-photo{background-position:72% center;opacity:.78}
+  .hero:before{background:linear-gradient(90deg,rgba(3,20,39,.88) 0%,rgba(4,27,50,.76) 48%,rgba(4,27,50,.38) 100%)}
+  .hero-grid{position:relative}
+  .country-link{display:flex!important;align-items:center;gap:4px;font-size:9px;white-space:nowrap;margin-left:auto;margin-right:2px;color:#eaf4ff}
+  .country-link .us-flag{width:17px;height:12px;flex:none}
+  .country-link:after{content:"";display:none}
+}
+@media(max-width:430px){
+  .nav{gap:5px}
+  .brand{font-size:14px;gap:4px;white-space:nowrap}
+  .brand-mark{width:23px;height:23px}
+  .country-link{font-size:8px;gap:3px}
+  .country-link .us-flag{width:15px;height:11px}
+  .nav-cta{font-size:8px;padding:8px 7px;gap:4px;white-space:nowrap}
+  .nav-cta .wa-icon{width:15px;height:15px}
+}
+@media(max-width:360px){
+  .brand{font-size:13px}
+  .country-link{font-size:7px}
+  .nav-cta{font-size:7px;padding:7px 5px}
+}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
 </style>
 </head>
