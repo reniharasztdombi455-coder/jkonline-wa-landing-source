@@ -56,15 +56,7 @@ export async function onRequestPost({ request, env }) {
     const customerCode = session.customer_code;
     let countEvent = true;
 
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS unique_customer_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      slug TEXT NOT NULL,
-      customer_code TEXT NOT NULL,
-      event_type TEXT NOT NULL,
-      first_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      UNIQUE(slug, customer_code, event_type)
-    )`).run();
-
+    // Event/session tables are provisioned by the versioned D1 migration.
     try {
       await env.DB.prepare(
         "INSERT INTO unique_customer_events (slug, customer_code, event_type) VALUES (?, ?, ?)"
